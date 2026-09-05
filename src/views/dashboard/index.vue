@@ -1,7 +1,6 @@
 <template>
   <div>
     <h2 style="margin-bottom: 20px">仪表盘</h2>
-
     <!-- 资源概览卡片 -->
     <n-grid :cols="4" :x-gap="16" :y-gap="16" style="margin-bottom: 20px">
       <n-gi>
@@ -41,7 +40,6 @@
         </n-card>
       </n-gi>
     </n-grid>
-
     <!-- CPU/内存图表 -->
     <n-grid :cols="2" :x-gap="16" style="margin-bottom: 20px">
       <n-gi>
@@ -55,7 +53,6 @@
         </n-card>
       </n-gi>
     </n-grid>
-
     <!-- 磁盘信息 -->
     <n-card title="磁盘信息">
       <n-table :data="diskData" :columns="diskColumns" />
@@ -78,7 +75,6 @@ let timer: any = null
 const cpuUsage = computed(() => systemStore.stats?.cpu?.usage?.toFixed(1) || '0')
 const memoryUsage = computed(() => systemStore.stats?.memory?.usage_percent?.toFixed(1) || '0')
 const runningContainers = ref(0)
-
 const uptimeText = computed(() => {
   const uptime = systemStore.stats?.uptime || 0
   const days = Math.floor(uptime / 86400)
@@ -136,13 +132,13 @@ async function refresh() {
   await systemStore.fetchStats()
   const now = new Date().toLocaleTimeString()
   if (cpuChart) {
-    const option = cpuChart.getOption()
+    const option: any = cpuChart.getOption()
     const xData = [...(option.xAxis[0].data || []), now].slice(-20)
     const yData = [...(option.series[0].data || []), cpuUsage.value].slice(-20)
     cpuChart.setOption({ xAxis: { data: xData }, series: [{ data: yData }] })
   }
   if (memChart) {
-    const option = memChart.getOption()
+    const option: any = memChart.getOption()
     const xData = [...(option.xAxis[0].data || []), now].slice(-20)
     const yData = [...(option.series[0].data || []), memoryUsage.value].slice(-20)
     memChart.setOption({ xAxis: { data: xData }, series: [{ data: yData }] })
