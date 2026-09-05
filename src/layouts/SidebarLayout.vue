@@ -13,7 +13,7 @@
         <div class="brand-mark" aria-hidden="true"><span /></div>
         <div>
           <div class="brand-name">pnos</div>
-          <div class="brand-caption">让服务器更简单</div>
+          <div class="brand-caption">服务器，更简单</div>
         </div>
       </div>
 
@@ -46,7 +46,7 @@
           <n-input
             v-model:value="search"
             class="global-search"
-            placeholder="搜索设置、应用和系统信息"
+            placeholder="搜索"
             clearable
           >
             <template #prefix><span class="search-symbol">⌘</span></template>
@@ -65,7 +65,7 @@
         <div class="mobile-drawer">
           <div class="brand mobile-drawer-brand">
             <div class="brand-mark"><span /></div>
-            <div><div class="brand-name">pnos</div><div class="brand-caption">server, simplified</div></div>
+            <div><div class="brand-name">pnos</div><div class="brand-caption">服务器，更简单</div></div>
           </div>
           <n-menu :value="activeMenu" :options="menuOptions" @update:value="handleMobileMenuClick" />
         </div>
@@ -95,15 +95,13 @@ const makeIcon = (glyph: string) => () => h(NIcon, { size: 17 }, { default: () =
 
 const menuOptions = [
   { label: '概览', key: '/dashboard', icon: makeIcon('⌂') },
-  { label: '应用商店', key: '/store', icon: makeIcon('⬇') },
-  { label: '已安装', key: '/apps', icon: makeIcon('▦') },
-  { label: '设置', key: '/settings', icon: makeIcon('⌘') },
+  { label: '应用', key: '/store', icon: makeIcon('⊞') },
+  { label: '设置', key: '/settings', icon: makeIcon('⚙') },
 ]
 
 const activeMenu = computed(() => {
   if (route.path.startsWith('/dashboard')) return '/dashboard'
-  if (route.path.startsWith('/store')) return '/store'
-  if (route.path.startsWith('/apps')) return '/apps'
+  if (route.path.startsWith('/store') || route.path.startsWith('/apps')) return '/store'
   return '/settings'
 })
 

@@ -10,4 +10,8 @@ app.use(createPinia())
 app.use(router)
 app.use(naive)
 
+app.config.errorHandler = (error) => {
+  console.error('[PNOS]', error)
+}
+
 app.mount('#app')

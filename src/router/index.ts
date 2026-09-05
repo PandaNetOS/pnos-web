@@ -33,7 +33,10 @@ const routes: RouteRecordRaw[] = [
 
 const router = createRouter({
   history: createWebHistory(),
-  routes,
+  routes: [
+    ...routes,
+    { path: '/:pathMatch(.*)*', redirect: '/dashboard' },
+  ],
 })
 
 export default router
