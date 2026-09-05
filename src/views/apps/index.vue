@@ -1,41 +1,37 @@
 <template>
-  <div>
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px">
-      <h2 style="color: #e6edf3; margin: 0; font-size: 20px">已安装应用</h2>
-      <n-button @click="fetchApps" size="small">刷新</n-button>
+  <div class="pnos-page">
+    <PageHeader title="已安装应用" description="管理和控制已安装的应用">
+      <template #actions>
+        <n-button quaternary @click="fetchApps">刷新</n-button>
+      </template>
+    </PageHeader>
+
+    <div v-if="apps.length" class="app-list pnos-surface">
+      <div v-for="app in apps" :key="app.id" class="list-app">
+        <div class="app-logo"><span>{{ (app.name || app.id || 'A').slice(0, 1).toUpperCase() }}</span></div>
+        <div class="list-app-info">
+          <strong>{{ app.name || app.id }}</strong>
+          <span>{{ app.id }} · 127.0.0.1:{{ app.port }}</span>
+        </div>
+        <div class="status-badge" :class="app.status">
+          <span class="status-dot" />
+          {{ statusText(app.status) }}
+        </div>
+        <div class="list-actions">
+          <n-button size="small" type="primary" secondary @click="openApp(app)" :disabled="app.status !== 'running'">打开</n-button>
+          <n-button size="small" @click="toggleApp(app)" :loading="loadingId === app.id">
+            {{ app.status === 'running' ? '停止' : '启动' }}
+          </n-button>
+        </div>
+      </div>
     </div>
 
-    <n-grid :cols="3" :x-gap="16" :y-gap="16">
-      <n-gi v-for="app in apps" :key="app.id">
-        <n-card :bordered="false" size="small" style="background: #161b22; border-radius: 8px">
-          <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px">
-            <div style="width: 40px; height: 40px; border-radius: 8px; background: #21262d; display: flex; align-items: center; justify-content: center; font-size: 20px">
-              📦
-            </div>
-            <div style="flex: 1">
-              <div style="color: #e6edf3; font-weight: 600; font-size: 14px">{{ app.name }}</div>
-              <div style="color: #8b949e; font-size: 11px">v{{ app.version }}</div>
-            </div>
-            <n-tag :type="statusType(app.status)" size="small" :bordered="false">
-              {{ statusText(app.status) }}
-            </n-tag>
-          </div>
-          <div style="color: #8b949e; font-size: 12px; margin-bottom: 12px; min-height: 32px">
-            {{ app.id }} · 127.0.0.1:{{ app.port }}
-          </div>
-          <div style="display: flex; gap: 8px">
-            <n-button size="small" type="primary" ghost @click="openApp(app)" :disabled="app.status !== 'running'">
-              打开
-            </n-button>
-            <n-button size="small" @click="toggleApp(app)" :loading="loadingId === app.id">
-              {{ app.status === 'running' ? '停止' : '启动' }}
-            </n-button>
-          </div>
-        </n-card>
-      </n-gi>
-    </n-grid>
-
-    <n-empty v-if="apps.length === 0" description="暂无已安装应用" style="margin-top: 60px" />
+    <div v-else class="empty-state">
+      <div class="empty-icon">▦</div>
+      <div class="empty-title">暂无已安装应用</div>
+      <div class="empty-desc">从应用商店发现并安装应用</div>
+      <n-button type="primary" @click="$router.push('/store')">浏览应用商店</n-button>
+    </div>
   </div>
 </template>
 
@@ -43,6 +39,7 @@
 import { ref, onMounted } from 'vue'
 import { getRegisteredApps, startApp, stopApp } from '@/api'
 import { useMessage } from 'naive-ui'
+import PageHeader from '@/components/PageHeader.vue'
 
 const message = useMessage()
 const apps = ref<any[]>([])
@@ -53,17 +50,7 @@ async function fetchApps() {
     const res: any = await getRegisteredApps()
     apps.value = res.data || []
   } catch (e) {
-    console.error('获取应用列表失败', e)
-  }
-}
-
-function statusType(status: string) {
-  switch (status) {
-    case 'running': return 'success'
-    case 'stopped': return 'default'
-    case 'error': return 'error'
-    case 'installing': return 'warning'
-    default: return 'default'
+    console.error('Failed to fetch apps', e)
   }
 }
 
@@ -71,7 +58,7 @@ function statusText(status: string) {
   const map: Record<string, string> = {
     running: '运行中',
     stopped: '已停止',
-    error: '异常',
+    error: '错误',
     installing: '安装中',
     not_installed: '未安装',
   }
@@ -105,3 +92,49 @@ onMounted(() => {
   setInterval(fetchApps, 5000)
 })
 </script>
+
+<style scoped>
+.app-list { overflow: hidden; }
+.list-app {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px;
+  border-top: 1px solid #f0f1f4;
+}
+.list-app:first-child { border-top: 0; }
+.list-app:hover { background: #fafbfc; }
+.app-logo {
+  width: 42px; height: 42px; border-radius: 12px;
+  display: grid; place-items: center;
+  background: linear-gradient(145deg,#edf4ff,#f4f0ff);
+  color: #3478f6; font-size: 17px; font-weight: 750;
+  flex-shrink: 0;
+}
+.list-app-info { flex: 1; min-width: 0; }
+.list-app-info strong { display: block; font-size: 14px; }
+.list-app-info span {
+  display: block; color: var(--pnos-muted);
+  margin-top: 3px; font-size: 11.5px;
+  font-family: 'SF Mono', Monaco, monospace;
+}
+.status-badge {
+  display: flex; align-items: center; gap: 6px;
+  padding: 4px 10px; border-radius: 8px;
+  font-size: 11.5px; font-weight: 600; flex-shrink: 0;
+}
+.status-badge.running { background: var(--pnos-success-soft); color: var(--pnos-success); }
+.status-badge.stopped { background: #f2f4f7; color: var(--pnos-muted); }
+.status-badge.error { background: var(--pnos-danger-soft); color: var(--pnos-danger); }
+.status-badge.installing { background: var(--pnos-warning-soft); color: var(--pnos-warning); }
+.status-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.status-badge.running .status-dot { box-shadow: 0 0 6px currentColor; }
+.list-actions { display: flex; gap: 8px; flex-shrink: 0; }
+
+.empty-state {
+  text-align: center; padding: 80px 0;
+}
+.empty-icon { width:72px; height:72px; border-radius:20px; background:linear-gradient(145deg,#e8f0fe,#f0eafe); color:#3478f6; display:grid; place-items:center; font-size:32px; margin:0 auto 18px; box-shadow:0 4px 16px rgba(52,120,246,.15); }
+.empty-title { font-size: 18px; font-weight: 600; margin-bottom: 6px; }
+.empty-desc { font-size: 13px; color: var(--pnos-muted); margin-bottom: 20px; }
+</style>

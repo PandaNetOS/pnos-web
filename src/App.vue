@@ -1,5 +1,5 @@
 <template>
-  <n-config-provider :theme="darkTheme" :theme-overrides="themeOverrides">
+  <n-config-provider :theme-overrides="themeOverrides">
     <n-message-provider>
       <n-dialog-provider>
         <router-view />
@@ -9,49 +9,19 @@
 </template>
 
 <script setup lang="ts">
-import { darkTheme } from 'naive-ui'
+import './styles/tokens.css'
 
 const themeOverrides = {
   common: {
-    primaryColor: '#58a6ff',
-    primaryColorHover: '#79b8ff',
-    primaryColorPressed: '#388bfd',
-    primaryColorSuppl: '#58a6ff',
-    borderRadius: '8px',
-    bodyColor: '#0d1117',
-    cardColor: '#161b22',
-    modalColor: '#161b22',
-    textColorBase: '#e6edf3',
-    borderColor: '#30363d',
+    primaryColor: '#3478f6',
+    primaryColorHover: '#5a91f8',
+    primaryColorPressed: '#2465da',
+    borderRadius: '12px',
+    borderRadiusSmall: '8px',
   },
+  Button: { fontWeight: '600' },
+  Card: { borderRadius: '16px' },
+  Input: { borderRadius: '10px' },
+  Select: { peers: { InternalSelection: { borderRadius: '10px' } } },
 }
 </script>
-
-<style>
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-html, body, #app {
-  height: 100%;
-  background: #0d1117;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-}
-
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-::-webkit-scrollbar-track {
-  background: #0d1117;
-}
-::-webkit-scrollbar-thumb {
-  background: #30363d;
-  border-radius: 4px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #484f58;
-}
-</style>

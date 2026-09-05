@@ -1,0 +1,58 @@
+:root {
+  --pnos-bg: #f7f7f8;
+  --pnos-surface: #ffffff;
+  --pnos-surface-soft: #f3f4f6;
+  --pnos-border: #e6e7eb;
+  --pnos-text: #17181c;
+  --pnos-muted: #777c87;
+  --pnos-subtle: #a0a4ad;
+  --pnos-primary: #3478f6;
+  --pnos-primary-soft: #edf4ff;
+  --pnos-success: #22a06b;
+  --pnos-success-soft: #edf9f3;
+  --pnos-warning: #d98b18;
+  --pnos-warning-soft: #fff7e8;
+  --pnos-danger: #df4c4c;
+  --pnos-danger-soft: #fff0f0;
+  --pnos-radius-sm: 8px;
+  --pnos-radius-md: 12px;
+  --pnos-radius-lg: 16px;
+  --pnos-shadow: 0 1px 2px rgba(17, 24, 39, .03), 0 8px 24px rgba(17, 24, 39, .04);
+  --pnos-header-height: 60px;
+  --pnos-sidebar-width: 228px;
+}
+
+* { box-sizing: border-box; }
+html, body, #app { min-height: 100%; }
+body {
+  margin: 0;
+  background: var(--pnos-bg);
+  color: var(--pnos-text);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+button, input { font: inherit; }
+
+.pnos-page { max-width: 1380px; margin: 0 auto; padding: 12px 0 36px; }
+.pnos-page-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; margin-bottom: 28px; }
+.pnos-eyebrow { color: var(--pnos-muted); font-size: 13px; font-weight: 500; margin-bottom: 8px; }
+.pnos-page-title { margin: 0; font-size: 30px; line-height: 1.14; letter-spacing: -.03em; font-weight: 700; }
+.pnos-page-description { margin: 8px 0 0; color: var(--pnos-muted); font-size: 14px; }
+
+.pnos-surface {
+  background: var(--pnos-surface);
+  border: 1px solid var(--pnos-border);
+  border-radius: var(--pnos-radius-lg);
+  box-shadow: var(--pnos-shadow);
+}
+.pnos-section-title { font-size: 18px; font-weight: 650; letter-spacing: -.015em; margin-bottom: 12px; }
+.pnos-muted { color: var(--pnos-muted); }
+
+@media (max-width: 1100px) {
+  .pnos-page { padding-right: 4px; padding-left: 4px; }
+}
+@media (max-width: 760px) {
+  .pnos-page { padding-top: 4px; }
+  .pnos-page-header { align-items: flex-start; flex-direction: column; margin-bottom: 20px; }
+  .pnos-page-title { font-size: 26px; }
+}

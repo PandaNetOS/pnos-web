@@ -13,24 +13,21 @@ api.interceptors.response.use(
   }
 )
 
-// ===== 系统 =====
+// 系统
 export const getSystemInfo = () => api.get('/system/info')
 export const getSystemStats = () => api.get('/system/stats')
 
-// ===== 应用注册与发现 =====
+// 已安装应用
 export const getRegisteredApps = () => api.get('/apps')
 export const getAppDetail = (id: string) => api.get(`/apps/${id}`)
-export const discoverApp = (id: string) => api.get(`/apps/${id}/discover`)
-
-// ===== 应用管理 =====
-export const installApp = (id: string) => api.post(`/apps/${id}/install`)
 export const startApp = (id: string) => api.post(`/apps/${id}/start`)
 export const stopApp = (id: string) => api.post(`/apps/${id}/stop`)
 
-// ===== 商店 =====
+// 商店
 export const getStoreSources = () => api.get('/store/sources')
 export const refreshStoreSource = (id: string) => api.post(`/store/sources/${id}/refresh`)
 export const getStoreApps = () => api.get('/store/apps')
 export const getStoreAppDetail = (id: string) => api.get(`/store/apps/${id}`)
+export const installApp = (id: string) => api.post(`/apps/${id}/install`)
 
 export default api
