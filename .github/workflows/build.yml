@@ -3,7 +3,7 @@ name: Build pnos-web
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    tags: ['v*']
 
 concurrency:
   group: build-${{ github.ref }}
@@ -28,6 +28,8 @@ jobs:
         with:
           context: .
           push: true
-          tags: ghcr.io/pandanetos/pnos-web:latest
+          tags: |
+            ghcr.io/pandanetos/pnos-web:latest
+            ghcr.io/pandanetos/pnos-web:${{ github.ref_name }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
