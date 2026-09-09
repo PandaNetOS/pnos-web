@@ -1,13 +1,6 @@
 <template>
-  <n-layout class="app-shell" has-sider>
-    <n-layout-sider
-      bordered
-      :width="228"
-      :collapsed-width="0"
-      :collapsed="isMobile"
-      :show-trigger="false"
-      class="app-sidebar"
-    >
+  <div class="app-shell">
+    <aside class="app-sidebar">
       <div class="sidebar-inner">
       <div class="brand">
         <div class="brand-mark" aria-hidden="true"><span /></div>
@@ -32,10 +25,10 @@
         <div class="version">{{ systemStore.version || 'v0.1.0' }}</div>
       </div>
       </div>
-    </n-layout-sider>
+    </aside>
 
-    <n-layout>
-      <n-layout-header bordered class="topbar">
+    <div class="main-area">
+      <header class="topbar">
         <div class="topbar-inner">
           <div class="mobile-brand">
             <n-button quaternary circle aria-label="Menu" @click="mobileDrawer = true">☰</n-button>
@@ -59,29 +52,33 @@
             </n-button>
           </div>
         </div>
-      </n-layout-header>
+      </header>
 
-      <n-drawer v-model:show="mobileDrawer" placement="left" :width="260">
-        <div class="mobile-drawer">
-          <div class="brand mobile-drawer-brand">
-            <div class="brand-mark"><span /></div>
-            <div><div class="brand-name">pnos</div><div class="brand-caption">服务器，更简单</div></div>
-          </div>
-          <n-menu :value="activeMenu" :options="menuOptions" @update:value="handleMobileMenuClick" />
+      <div class="content-area">
+        <simple-bar class="content-scrollbar">
+          <router-view />
+        </simple-bar>
+      </div>
+    </div>
+
+    <n-drawer v-model:show="mobileDrawer" placement="left" :width="260">
+      <div class="mobile-drawer">
+        <div class="brand mobile-drawer-brand">
+          <div class="brand-mark"><span /></div>
+          <div><div class="brand-name">pnos</div><div class="brand-caption">服务器，更简单</div></div>
         </div>
-      </n-drawer>
-
-      <n-layout-content class="content-area">
-        <router-view />
-      </n-layout-content>
-    </n-layout>
-  </n-layout>
+        <n-menu :value="activeMenu" :options="menuOptions" @update:value="handleMobileClick" />
+      </div>
+    </n-drawer>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref, h } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { NIcon } from 'naive-ui'
+import SimpleBar from 'simplebar-vue'
+import 'simplebar/dist/simplebar.min.css'
 import { useSystemStore } from '@/stores/system'
 
 const route = useRoute()
@@ -106,7 +103,7 @@ const activeMenu = computed(() => {
 })
 
 function handleMenuClick(key: string) { router.push(key) }
-function handleMobileMenuClick(key: string) { mobileDrawer.value = false; router.push(key) }
+function handleMobileClick(key: string) { mobileDrawer.value = false; router.push(key) }
 function updateViewport() { isMobile.value = window.innerWidth < 900 }
 
 onMounted(() => {
@@ -117,12 +114,21 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.app-shell { min-height: 100vh; height: 100vh; background: var(--pnos-bg); }
-.app-shell :deep(.n-layout) { height: 100vh; }
-.app-shell :deep(.n-layout-sider) { height: 100vh; }
-.app-sidebar { position: relative; background: rgba(255,255,255,.92); backdrop-filter: blur(18px); padding:0; height:100vh; overflow:hidden; }
-.app-sidebar :deep(.n-layout-sider-scroll-container) { height:100%; overflow:hidden; }
-.sidebar-inner { display:flex; flex-direction:column; height:100vh; min-height:100vh; overflow:hidden; }
+.app-shell {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--pnos-bg);
+}
+.app-sidebar {
+  width: 228px;
+  flex-shrink: 0;
+  background: rgba(255,255,255,.92);
+  backdrop-filter: blur(18px);
+  border-right: 1px solid rgba(0,0,0,0.06);
+  overflow: hidden;
+}
+.sidebar-inner { display:flex; flex-direction:column; height:100%; overflow:hidden; }
 .brand { display:flex; align-items:center; gap:11px; padding:22px 20px 18px; flex-shrink:0; }
 .brand-name { font-size:18px; font-weight:700; letter-spacing:-.025em; }
 .brand-caption { margin-top:2px; color:var(--pnos-subtle); font-size:11px; }
@@ -137,17 +143,57 @@ onMounted(() => {
 .health-row { display:flex; align-items:center; gap:7px; font-size:12px; font-weight:600; color:#4d5561; }
 .health-dot { width:7px; height:7px; border-radius:50%; background:var(--pnos-success); display:inline-block; box-shadow:0 0 0 3px var(--pnos-success-soft); }
 .version { color:var(--pnos-subtle); font-size:11px; margin-top:8px; }
-.topbar { height:var(--pnos-header-height); background:rgba(255,255,255,.8); backdrop-filter:blur(18px); }
+
+.main-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+}
+.topbar {
+  height: var(--pnos-header-height);
+  flex-shrink: 0;
+  background: rgba(255,255,255,.8);
+  backdrop-filter: blur(18px);
+  border-bottom: 1px solid rgba(0,0,0,0.06);
+  overflow: hidden;
+}
 .topbar-inner { height:100%; display:flex; align-items:center; gap:20px; padding:0 26px; }
 .global-search { width:min(460px, 46vw); }
 .search-symbol { color:var(--pnos-subtle); font-size:14px; }
 .topbar-actions { margin-left:auto; display:flex; align-items:center; gap:8px; }
 .top-status { display:flex; align-items:center; gap:8px; font-size:12px; color:#5c6571; font-weight:600; }
 .avatar { width:28px; height:28px; display:grid; place-items:center; border-radius:50%; background:#3478f6; color:white; font-size:12px; font-weight:700; }
+
+.content-area {
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+}
+.content-scrollbar { height: 100%; }
+.content-scrollbar :deep(.simplebar-content) { padding:28px 34px; }
+.content-scrollbar :deep(.simplebar-track.simplebar-vertical) { width: 20px; }
+.content-scrollbar :deep(.simplebar-scrollbar) {
+  width: 20px;
+  min-height: 80px;
+  max-height: 80px;
+  height: 80px;
+}
+.content-scrollbar :deep(.simplebar-scrollbar::before) {
+  background: rgba(0, 0, 0, 0.10);
+  border-radius: 3px;
+  opacity: 1;
+  transition: background 0.2s ease;
+}
+.content-scrollbar :deep(.simplebar-hover .simplebar-scrollbar::before),
+.content-scrollbar :deep(.simplebar-scrollbar:hover::before) {
+  background: rgba(0, 0, 0, 0.25);
+}
+
 .mobile-brand { display:none; align-items:center; gap:8px; }
 .mobile-drawer { padding: 8px 12px 20px; }
 .mobile-drawer-brand { padding-left: 8px; }
-.content-area { padding:28px 34px; }
 .menu-glyph { display:block; width:16px; text-align:center; color:#68707c; font-size:16px; }
 :deep(.n-menu-item-content) { border-radius:10px; }
 :deep(.n-menu-item-content--selected) { background:var(--pnos-primary-soft); color:var(--pnos-primary); }
@@ -156,7 +202,7 @@ onMounted(() => {
   .app-sidebar { display:none; }
   .mobile-brand { display:flex; }
   .global-search { flex:1; width:auto; }
-  .content-area { padding:20px 16px; }
+  .content-scrollbar :deep(.simplebar-content) { padding:20px 16px; }
   .top-status { display:none; }
 }
 </style>

@@ -44,7 +44,7 @@
 }
 
 * { box-sizing: border-box; }
-html, body, #app { min-height: 100%; }
+html, body, #app { height: 100%; overflow: hidden; }
 body {
   margin: 0;
   background: var(--pnos-bg);
@@ -79,3 +79,14 @@ button, input { font: inherit; }
 button { transition: var(--pnos-transition); }
 button:focus-visible { outline: 2px solid var(--pnos-primary); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { * { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+
+/* 全局隐藏原生滚动条，使用 simplebar 自定义滚动条 */
+*::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+* {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
