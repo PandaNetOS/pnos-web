@@ -199,7 +199,7 @@
         </div>
         <div class="info-row">
           <span class="info-label">系统版本</span>
-          <span class="info-value mono">pnos {{ systemStore.version }}</span>
+          <span class="info-value">pnos {{ systemStore.version }}</span>
         </div>
         <div class="info-row">
           <span class="info-label">操作系统</span>
@@ -207,11 +207,11 @@
         </div>
         <div class="info-row">
           <span class="info-label">内核</span>
-          <span class="info-value mono">{{ systemStore.info?.kernel || '-' }}</span>
+          <span class="info-value">{{ systemStore.info?.kernel || '-' }}</span>
         </div>
         <div class="info-row">
           <span class="info-label">架构</span>
-          <span class="info-value mono">{{ systemStore.info?.arch }}</span>
+          <span class="info-value">{{ systemStore.info?.arch }}</span>
         </div>
         <div class="info-row">
           <span class="info-label">CPU</span>
@@ -219,7 +219,7 @@
         </div>
         <div class="info-row">
           <span class="info-label">总内存</span>
-          <span class="info-value mono">{{ formatBytes(systemStore.memoryTotal) }}</span>
+          <span class="info-value">{{ formatBytes(systemStore.memoryTotal) }}</span>
         </div>
         <div class="info-row last">
           <span class="info-label">运行时长</span>
@@ -466,11 +466,6 @@ onMounted(() => {
   font-size: 13px;
   font-weight: 500;
   text-align: right;
-}
-
-.info-value.mono {
-  font-family: 'SF Mono', Monaco, monospace;
-  font-size: 12.5px;
 }
 
 .add-source-panel {

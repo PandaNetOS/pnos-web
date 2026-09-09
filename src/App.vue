@@ -25,6 +25,8 @@ const themeOverrides = {
     primaryColorPressed: '#2465da',
     borderRadius: '12px',
     borderRadiusSmall: '8px',
+    fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", sans-serif',
+    fontFamilyMono: '"SF Mono", "Monaco", "Inconsolata", "Fira Mono", "Droid Sans Mono", "Source Code Pro", monospace',
   },
   Button: { fontWeight: '600' },
   Card: { borderRadius: '16px' },

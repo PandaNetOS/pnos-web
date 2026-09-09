@@ -21,7 +21,7 @@
         <strong>{{ healthTitle }}</strong>
         <span>{{ healthDetail }}</span>
       </div>
-      <n-button quaternary size="small" class="health-action" @click="refresh" :loading="refreshing">{{ refreshing ? '更新中' : '更新' }}</n-button>
+      <n-button quaternary size="small" class="health-action" @click="refresh(true)" :loading="refreshing">{{ refreshing ? '更新中' : '更新' }}</n-button>
     </section>
 
     <section class="overview-section resource-section">
@@ -138,7 +138,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch, type Ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSystemStore } from '@/stores/system'
 import { useComponentsStore } from '@/stores/components'
@@ -152,23 +152,41 @@ const settingsStore = useSettingsStore()
 const cpuChartRef = ref<HTMLElement>()
 const memChartRef = ref<HTMLElement>()
 const refreshing = ref(false)
+const cpuUsage = ref(0)
+const memoryUsage = ref(0)
+const storageUsage = ref(0)
+const animationFrames: Record<string, number> = {}
 let cpuChart: echarts.ECharts | null = null
 let memChart: echarts.ECharts | null = null
 let timer: ReturnType<typeof setInterval> | null = null
 let resizeHandler: (() => void) | null = null
 
-const cpuUsage = computed(() => Math.round(Number(systemStore.stats?.cpu_usage ?? 0)))
-const cpuCores = computed(() => systemStore.info?.cpu_cores || 0)
-const memoryUsage = computed(() => Math.round(Number(systemStore.stats?.memory_usage ?? 0)))
+function animateNumber(key: string, target: Ref<number>, newValue: number, duration = 800) {
+  if (animationFrames[key]) cancelAnimationFrame(animationFrames[key])
+  const startValue = target.value
+  const startTime = performance.now()
+  function step(now: number) {
+    const elapsed = now - startTime
+    const progress = Math.min(elapsed / duration, 1)
+    const eased = progress < 0.5 ? 4 * progress * progress * progress : 1 - Math.pow(-2 * progress + 2, 3) / 2
+    target.value = Math.round(startValue + (newValue - startValue) * eased)
+    if (progress < 1) {
+      animationFrames[key] = requestAnimationFrame(step)
+    } else {
+      delete animationFrames[key]
+    }
+  }
+  animationFrames[key] = requestAnimationFrame(step)
+}
 const memoryDetail = computed(() => {
   const total = systemStore.stats?.memory_total || systemStore.info?.memory_total
   if (!total) return '—'
   return `${formatBytes(Number(systemStore.stats?.memory_used ?? 0))} / ${formatBytes(Number(total))}`
 })
 const storageSource = computed(() => systemStore.stats?.disks?.[0])
-const storageUsage = computed(() => Math.round(Number(storageSource.value?.usage ?? 0)))
 const storageDetail = computed(() => storageSource.value?.total ? formatBytes(Number(storageSource.value.total)) : '—')
 const storageFree = computed(() => storageSource.value?.available ? formatBytes(Number(storageSource.value.available)) : '—')
+const cpuCores = computed(() => systemStore.info?.cpu_cores || 0)
 const uptimeText = computed(() => systemStore.uptimeText)
 const load1 = computed(() => Number(systemStore.stats?.load_average?.[0] ?? 0).toFixed(2))
 const load5 = computed(() => Number(systemStore.stats?.load_average?.[1] ?? 0).toFixed(2))
@@ -250,15 +268,30 @@ function initCharts() {
   initChart(memChart)
 }
 
-async function refresh() {
-  if (refreshing.value) return
-  refreshing.value = true
+async function refresh(showLoading = false) {
+  if (showLoading && refreshing.value) return
+  const startTime = showLoading ? performance.now() : 0
+  const minLoadingDuration = 600
+  if (showLoading) refreshing.value = true
   try {
     await Promise.all([systemStore.fetchStats(), componentsStore.fetch()])
-    updateChart(cpuChart, cpuUsage.value)
-    updateChart(memChart, memoryUsage.value)
+    const newCpu = Math.round(Number(systemStore.stats?.cpu_usage ?? 0))
+    const newMem = Math.round(Number(systemStore.stats?.memory_usage ?? 0))
+    const newStorage = Math.round(Number(storageSource.value?.usage ?? 0))
+    animateNumber('cpu', cpuUsage, newCpu)
+    animateNumber('memory', memoryUsage, newMem)
+    animateNumber('storage', storageUsage, newStorage)
+    updateChart(cpuChart, newCpu)
+    updateChart(memChart, newMem)
   } finally {
-    refreshing.value = false
+    if (showLoading) {
+      const elapsed = performance.now() - startTime
+      if (elapsed < minLoadingDuration) {
+        setTimeout(() => { refreshing.value = false }, minLoadingDuration - elapsed)
+      } else {
+        refreshing.value = false
+      }
+    }
   }
 }
 
@@ -268,7 +301,7 @@ function openApp() {
 
 function startPolling() {
   if (timer) clearInterval(timer)
-  timer = setInterval(refresh, settingsStore.refreshInterval)
+  timer = setInterval(() => refresh(false), settingsStore.refreshInterval)
 }
 
 onMounted(async () => {
@@ -289,6 +322,7 @@ watch(() => settingsStore.refreshInterval, () => {
 onUnmounted(() => {
   if (timer) clearInterval(timer)
   if (resizeHandler) window.removeEventListener('resize', resizeHandler)
+  Object.values(animationFrames).forEach(cancelAnimationFrame)
   cpuChart?.dispose()
   memChart?.dispose()
 })
@@ -333,7 +367,7 @@ onUnmounted(() => {
 .resource-chart { height:34px; min-width:0; }
 .resource-chart > div { width:100%; height:100%; }
 .storage-meter { height:5px; background:#eceef1; border-radius:999px; overflow:hidden; }
-.storage-meter span { display:block; height:100%; border-radius:inherit; background:var(--pnos-primary); transition:width .55s cubic-bezier(.2,.7,.2,1); }
+.storage-meter span { display:block; height:100%; border-radius:inherit; background:#8c93a0; transition:width .8s cubic-bezier(.65,0,.35,1); }
 .resource-value { display:flex; justify-content:flex-end; text-align:right; }
 .resource-value span { color:var(--pnos-muted); font-size:10px; white-space:nowrap; }
 .load-track { height:4px; background:#eceef1; border-radius:999px; overflow:hidden; }
@@ -384,8 +418,17 @@ onUnmounted(() => {
 .attention-copy span { color:var(--pnos-muted); font-size:10.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .attention-ok { color:var(--pnos-muted); font-size:10.5px; }
 .overview-page :deep(.n-button) { --n-border-radius: 8px; }
-.health-action { color:var(--pnos-muted); }
-.health-action:hover { color:var(--pnos-text); background:rgba(0,0,0,.035); }
+.health-action {
+  color: var(--pnos-muted);
+  min-width: 68px;
+  cursor: pointer !important;
+  transition: color 0.25s ease, background-color 0.25s ease, transform 0.15s ease;
+}
+.health-action:hover { color: var(--pnos-text); background: rgba(0,0,0,.035); }
+.health-action:active { transform: scale(0.96); }
+.health-action :deep(.n-button__content) { transition: opacity 0.3s ease; cursor: pointer !important; }
+.health-action :deep(.n-button-loading) { transition: opacity 0.3s ease; cursor: pointer !important; }
+.health-action :deep(.n-base-loading) { transition: opacity 0.3s ease; cursor: pointer !important; }
 .app-item:focus-visible { outline:2px solid rgba(59,114,230,.30); outline-offset:-2px; }
 .app-item:active { background:rgba(0,0,0,.024); }
 @keyframes live-pulse { 0%,65%,100% { box-shadow:0 0 0 3px var(--pnos-success-soft); } 20% { box-shadow:0 0 0 5px var(--pnos-success-soft); } }
