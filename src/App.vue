@@ -1,5 +1,5 @@
 <template>
-  <n-config-provider :theme-overrides="themeOverrides">
+  <n-config-provider :theme="naiveTheme" :theme-overrides="themeOverrides">
     <n-message-provider>
       <n-dialog-provider>
         <router-view />
@@ -9,7 +9,14 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
+import { darkTheme } from 'naive-ui'
 import './styles/tokens.css'
+import { useSettingsStore } from './stores/settings'
+
+const settingsStore = useSettingsStore()
+
+const naiveTheme = computed(() => settingsStore.theme === 'dark' ? darkTheme : null)
 
 const themeOverrides = {
   common: {

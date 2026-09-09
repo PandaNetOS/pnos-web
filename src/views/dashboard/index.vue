@@ -78,11 +78,11 @@
           <h2>应用</h2>
           <p>{{ apps.length ? `${apps.length} 个已安装应用` : '还没有安装应用' }}</p>
         </div>
-        <n-button text type="primary" @click="router.push('/store')">查看全部</n-button>
+        <n-button text type="primary" @click="router.push('/apps')">查看全部</n-button>
       </div>
 
       <div v-if="apps.length" class="app-list">
-        <button v-for="app in apps" :key="app.name" class="app-item" type="button" @click="openApp(app)">
+        <button v-for="app in apps" :key="app.name" class="app-item" type="button" @click="openApp">
           <span class="app-icon" :class="app.tone"><span>{{ app.symbol }}</span></span>
           <span class="app-content">
             <strong>{{ app.name }}</strong>
@@ -96,7 +96,7 @@
         <div class="empty-icon">+</div>
         <strong>还没有安装应用</strong>
         <span>从应用商店开始，为这台服务器添加第一个服务。</span>
-        <n-button type="primary" secondary @click="router.push('/store')">浏览应用商店</n-button>
+        <n-button type="primary" secondary @click="router.push('/apps')">浏览应用商店</n-button>
       </div>
     </section>
 
@@ -138,57 +138,47 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSystemStore } from '@/stores/system'
-import { getRegisteredApps } from '@/api'
+import { useComponentsStore } from '@/stores/components'
+import { useSettingsStore } from '@/stores/settings'
 import * as echarts from 'echarts'
 
 const router = useRouter()
 const systemStore = useSystemStore()
+const componentsStore = useComponentsStore()
+const settingsStore = useSettingsStore()
 const cpuChartRef = ref<HTMLElement>()
 const memChartRef = ref<HTMLElement>()
-const registeredApps = ref<any[]>([])
 const refreshing = ref(false)
 let cpuChart: echarts.ECharts | null = null
 let memChart: echarts.ECharts | null = null
 let timer: ReturnType<typeof setInterval> | null = null
 let resizeHandler: (() => void) | null = null
 
-const cpuUsage = computed(() => Math.round(Number(systemStore.stats?.cpu_usage ?? systemStore.stats?.cpu?.usage ?? 0)))
-const cpuCores = computed(() => systemStore.info?.cpu_cores || 8)
-const memoryUsage = computed(() => Math.round(Number(systemStore.stats?.memory_usage ?? systemStore.stats?.memory?.usage_percent ?? 0)))
+const cpuUsage = computed(() => Math.round(Number(systemStore.stats?.cpu_usage ?? 0)))
+const cpuCores = computed(() => systemStore.info?.cpu_cores || 0)
+const memoryUsage = computed(() => Math.round(Number(systemStore.stats?.memory_usage ?? 0)))
 const memoryDetail = computed(() => {
-  const total = systemStore.info?.memory_total || systemStore.stats?.memory?.total
+  const total = systemStore.stats?.memory_total || systemStore.info?.memory_total
   if (!total) return '—'
-  return `${formatBytes(Number(systemStore.stats?.memory?.used ?? total * memoryUsage.value / 100))} / ${formatBytes(Number(total))}`
+  return `${formatBytes(Number(systemStore.stats?.memory_used ?? 0))} / ${formatBytes(Number(total))}`
 })
 const storageSource = computed(() => systemStore.stats?.disks?.[0])
 const storageUsage = computed(() => Math.round(Number(storageSource.value?.usage ?? 0)))
 const storageDetail = computed(() => storageSource.value?.total ? formatBytes(Number(storageSource.value.total)) : '—')
 const storageFree = computed(() => storageSource.value?.available ? formatBytes(Number(storageSource.value.available)) : '—')
-const uptimeText = computed(() => {
-  const uptime = Number(systemStore.info?.uptime || 0)
-  const days = Math.floor(uptime / 86400)
-  const hours = Math.floor((uptime % 86400) / 3600)
-  const minutes = Math.floor((uptime % 3600) / 60)
-  if (days) return `${days} 天 ${hours} 小时`
-  if (hours) return `${hours} 小时 ${minutes} 分钟`
-  return `${minutes} 分钟`
-})
+const uptimeText = computed(() => systemStore.uptimeText)
 const load1 = computed(() => Number(systemStore.stats?.load_average?.[0] ?? 0).toFixed(2))
 const load5 = computed(() => Number(systemStore.stats?.load_average?.[1] ?? 0).toFixed(2))
-const serverName = computed(() => systemStore.info?.hostname || 'Panda Server')
-const healthLevel = computed(() => {
-  if (storageUsage.value >= 90 || cpuUsage.value >= 95 || memoryUsage.value >= 95) return 'danger'
-  if (storageUsage.value >= 75 || cpuUsage.value >= 85 || memoryUsage.value >= 85) return 'warning'
-  return 'healthy'
-})
+const serverName = computed(() => systemStore.serverName)
+const healthLevel = computed(() => systemStore.healthLevel)
 const healthLabel = computed(() => healthLevel.value === 'healthy' ? '运行正常' : healthLevel.value === 'warning' ? '需要注意' : '需要处理')
 const healthTitle = computed(() => healthLevel.value === 'healthy' ? '一切运行正常' : healthLevel.value === 'warning' ? '服务器运行正常，但有事项需要留意' : '服务器需要你的关注')
 const healthDetail = computed(() => healthLevel.value === 'healthy' ? `CPU ${cpuUsage.value}% · 内存 ${memoryUsage.value}% · 存储 ${storageUsage.value}%` : [storageUsage.value >= 75 ? `存储 ${storageUsage.value}%` : '', cpuUsage.value >= 85 ? `CPU ${cpuUsage.value}%` : '', memoryUsage.value >= 85 ? `内存 ${memoryUsage.value}%` : ''].filter(Boolean).join(' · '))
 
-const apps = computed(() => registeredApps.value.slice(0, 5).map((item: any, index) => ({
+const apps = computed(() => componentsStore.apps.slice(0, 5).map((item) => ({
   name: item.name || item.id || 'Application',
   description: item.port ? `端口 ${item.port}` : '服务器应用',
   state: normalizeState(item.status),
@@ -222,6 +212,7 @@ function normalizeState(state: unknown) {
   if (value.includes('running') || value.includes('up') || value.includes('运行')) return '运行中'
   if (value.includes('stop') || value.includes('exit') || value.includes('停止')) return '已停止'
   if (value.includes('error') || value.includes('fail') || value.includes('异常')) return '异常'
+  if (value.includes('offline')) return '离线'
   return state ? String(state) : '运行中'
 }
 
@@ -232,17 +223,15 @@ function formatBytes(bytes: number) {
   return `${(bytes / 1024 ** i).toFixed(i > 1 ? 1 : 0)} ${units[i]}`
 }
 
-function seedChart(chart: echarts.ECharts | null, base: number) {
+function initChart(chart: echarts.ECharts | null) {
   if (!chart) return
-  const offsets = [-4, -2, 1, -1, 2, 0, 3, 1, -2, -1, 2, 0, 4, 2, 1, 3, 0, -2, 1, 0, 2, -1, 3, 2, -2, 0, 1, 2, -1, 1, 0, 2, -1, 1, -2, 0]
-  const data = offsets.map((offset, i) => Math.max(1, Math.min(98, base + offset + Math.round(Math.sin(i / 4) * 2))))
   chart.setOption({
     animationDuration: 500,
     grid: { left: 0, right: 0, top: 7, bottom: 7 },
-    xAxis: { type: 'category', show: false, boundaryGap: false, data: data.map((_, i) => i) },
+    xAxis: { type: 'category', show: false, boundaryGap: false, data: [] },
     yAxis: { type: 'value', show: false, min: 0, max: 100 },
     tooltip: { show: false },
-    series: [{ type: 'line', smooth: 0.35, symbol: 'none', data, lineStyle: { width: 1.35, color: '#8c93a0' }, areaStyle: { opacity: 0.018, color: '#8c93a0' } }],
+    series: [{ type: 'line', smooth: 0.35, symbol: 'none', data: [], lineStyle: { width: 1.35, color: '#8c93a0' }, areaStyle: { opacity: 0.018, color: '#8c93a0' } }],
   })
 }
 
@@ -257,24 +246,15 @@ function updateChart(chart: echarts.ECharts | null, value: number) {
 function initCharts() {
   cpuChart = cpuChartRef.value ? echarts.init(cpuChartRef.value) : null
   memChart = memChartRef.value ? echarts.init(memChartRef.value) : null
-  seedChart(cpuChart, cpuUsage.value)
-  seedChart(memChart, memoryUsage.value)
-}
-
-async function fetchApps() {
-  try {
-    const res: any = await getRegisteredApps()
-    registeredApps.value = res?.data || []
-  } catch {
-    registeredApps.value = []
-  }
+  initChart(cpuChart)
+  initChart(memChart)
 }
 
 async function refresh() {
   if (refreshing.value) return
   refreshing.value = true
   try {
-    await Promise.all([systemStore.fetchStats(), fetchApps()])
+    await Promise.all([systemStore.fetchStats(), componentsStore.fetch()])
     updateChart(cpuChart, cpuUsage.value)
     updateChart(memChart, memoryUsage.value)
   } finally {
@@ -282,18 +262,28 @@ async function refresh() {
   }
 }
 
-function openApp(app: any) {
+function openApp() {
   router.push('/apps')
+}
+
+function startPolling() {
+  if (timer) clearInterval(timer)
+  timer = setInterval(refresh, settingsStore.refreshInterval)
 }
 
 onMounted(async () => {
   await systemStore.fetchInfo()
+  await componentsStore.fetch()
   await nextTick()
   initCharts()
   await refresh()
-  timer = setInterval(refresh, 5000)
+  startPolling()
   resizeHandler = () => { cpuChart?.resize(); memChart?.resize() }
   window.addEventListener('resize', resizeHandler)
+})
+
+watch(() => settingsStore.refreshInterval, () => {
+  startPolling()
 })
 
 onUnmounted(() => {
@@ -314,7 +304,7 @@ onUnmounted(() => {
 .status-orb { width:8px; height:8px; border-radius:50%; background:var(--pnos-success); box-shadow:0 0 0 4px var(--pnos-success-soft); }
 .overview-status.warning .status-orb { background:var(--pnos-warning); box-shadow:0 0 0 4px var(--pnos-warning-soft); }
 .overview-status.danger .status-orb { background:var(--pnos-danger); box-shadow:0 0 0 4px var(--pnos-danger-soft); }
-.health-line { display:flex; align-items:center; gap:12px; padding:11px 0 13px; margin-bottom:46px; border-top:1px solid var(--pnos-border); border-bottom:1px solid var(--pnos-border); background:transparent; }
+.health-line { display:flex; align-items:center; gap:12px; padding:11px 0 13px; margin-bottom:36px; border-top:1px solid var(--pnos-border); border-bottom:1px solid var(--pnos-border); background:transparent; }
 .health-line.warning, .health-line.danger { border-color:var(--pnos-border); }
 .health-line-mark { width:23px; height:23px; display:grid; place-items:center; flex:none; border-radius:50%; background:var(--pnos-success-soft); }
 .health-line-mark span { width:7px; height:7px; border-radius:50%; background:var(--pnos-success); }
@@ -326,6 +316,7 @@ onUnmounted(() => {
 .health-line-copy strong { font-size:12.5px; font-weight:650; }
 .health-line-copy span { color:var(--pnos-muted); font-size:11.5px; }
 .health-action { flex:none; opacity:.88; }
+
 .overview-section { margin-bottom:50px; }
 .section-heading { display:flex; align-items:flex-end; justify-content:space-between; gap:20px; margin-bottom:16px; }
 .section-heading h2 { margin:0; font-size:18px; line-height:1.25; letter-spacing:-.025em; font-weight:700; }
@@ -411,7 +402,7 @@ onUnmounted(() => {
   .overview-page { padding-top:6px; }
   .overview-header { margin-bottom:14px; }
   .pnos-page-title { font-size:27px; }
-  .health-line { margin-bottom:38px; }
+  .health-line { margin-bottom:28px; }
   .resource-row { grid-template-columns:1fr auto; gap:8px 10px; padding:13px 0; }
   .resource-chart { grid-column:1 / -1; grid-row:2; height:30px; }
   .resource-value { grid-column:2; grid-row:1; }
@@ -419,6 +410,6 @@ onUnmounted(() => {
   .section-heading { align-items:flex-start; }
   .app-item { grid-template-columns:38px minmax(0,1fr) 12px; }
   .app-state { display:none; }
-  .overview-section { margin-bottom:42px; }
+  .overview-section { margin-bottom:36px; }
 }
 </style>

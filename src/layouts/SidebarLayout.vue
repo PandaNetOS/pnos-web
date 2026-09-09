@@ -29,7 +29,7 @@
           <span class="health-dot" />
           <span>系统运行正常</span>
         </div>
-        <div class="version">{{ systemStore.info?.version || 'v0.1.0' }}</div>
+        <div class="version">{{ systemStore.version || 'v0.1.0' }}</div>
       </div>
       </div>
     </n-layout-sider>
@@ -95,13 +95,13 @@ const makeIcon = (glyph: string) => () => h(NIcon, { size: 17 }, { default: () =
 
 const menuOptions = [
   { label: '概览', key: '/dashboard', icon: makeIcon('⌂') },
-  { label: '应用', key: '/store', icon: makeIcon('⊞') },
+  { label: '应用', key: '/apps', icon: makeIcon('⊞') },
   { label: '设置', key: '/settings', icon: makeIcon('⚙') },
 ]
 
 const activeMenu = computed(() => {
   if (route.path.startsWith('/dashboard')) return '/dashboard'
-  if (route.path.startsWith('/store') || route.path.startsWith('/apps')) return '/store'
+  if (route.path.startsWith('/apps') || route.path.startsWith('/store')) return '/apps'
   return '/settings'
 })
 

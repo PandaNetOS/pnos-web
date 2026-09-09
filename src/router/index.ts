@@ -1,4 +1,4 @@
-import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router'
+import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import SidebarLayout from '@/layouts/SidebarLayout.vue'
 
 const routes: RouteRecordRaw[] = [
@@ -13,14 +13,13 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/dashboard/index.vue'),
       },
       {
-        path: 'store',
-        name: 'Store',
-        component: () => import('@/views/store/index.vue'),
-      },
-      {
         path: 'apps',
         name: 'Apps',
         component: () => import('@/views/apps/index.vue'),
+      },
+      {
+        path: 'store',
+        redirect: '/apps',
       },
       {
         path: 'settings',
