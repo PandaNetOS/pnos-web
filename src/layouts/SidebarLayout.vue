@@ -80,25 +80,51 @@ import { NIcon } from 'naive-ui'
 import SimpleBar from 'simplebar-vue'
 import 'simplebar/dist/simplebar.min.css'
 import { useSystemStore } from '@/stores/system'
+import { useComponentsStore } from '@/stores/components'
+import { useSettingsStore } from '@/stores/settings'
 
 const route = useRoute()
 const router = useRouter()
 const systemStore = useSystemStore()
+const componentsStore = useComponentsStore()
+const settingsStore = useSettingsStore()
 const search = ref('')
 const mobileDrawer = ref(false)
 const isMobile = ref(false)
 
 const makeIcon = (glyph: string) => () => h(NIcon, { size: 17 }, { default: () => h('span', { class: 'menu-glyph' }, glyph) })
 
-const menuOptions = [
+/** 应用快捷入口：运行中、有 web_path、且未被开关隐藏的应用（manifest/注册表驱动，零按应用代码） */
+const appShortcuts = computed(() =>
+  componentsStore.apps.filter(
+    (a) => a.status === 'running' && a.web_path && settingsStore.isAppVisible(a.id),
+  ),
+)
+
+const menuOptions = computed(() => [
   { label: '概览', key: '/dashboard', icon: makeIcon('⌂') },
   { label: '应用', key: '/apps', icon: makeIcon('⊞') },
   { label: '设置', key: '/settings', icon: makeIcon('⚙') },
-]
+  ...(appShortcuts.value.length
+    ? [
+        {
+          type: 'group' as const,
+          label: '应用快捷入口',
+          key: 'app-shortcuts',
+          children: appShortcuts.value.map((a) => ({
+            label: a.name,
+            key: `/app/${a.id}`,
+            icon: makeIcon('▣'),
+          })),
+        },
+      ]
+    : []),
+])
 
 const activeMenu = computed(() => {
   if (route.path.startsWith('/dashboard')) return '/dashboard'
   if (route.path.startsWith('/apps') || route.path.startsWith('/store')) return '/apps'
+  if (route.path.startsWith('/app/')) return route.path
   return '/settings'
 })
 
@@ -108,6 +134,7 @@ function updateViewport() { isMobile.value = window.innerWidth < 900 }
 
 onMounted(() => {
   systemStore.fetchInfo()
+  componentsStore.fetch()
   updateViewport()
   window.addEventListener('resize', updateViewport)
 })

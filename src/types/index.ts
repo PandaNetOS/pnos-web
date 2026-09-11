@@ -107,6 +107,7 @@ export interface StoreApp {
   name: string
   version: string
   description?: string
+  icon?: string
   image?: string
   categories?: string[]
   official?: boolean

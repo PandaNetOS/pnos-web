@@ -9,6 +9,7 @@ export const useStoreStore = defineStore('store', () => {
   const loadingApps = ref(false)
   const loadingSources = ref(false)
   const installingId = ref<string | null>(null)
+  let pollingTimer: ReturnType<typeof setInterval> | null = null
 
   const categories = computed(() => {
     const set = new Set<string>()
@@ -52,6 +53,8 @@ export const useStoreStore = defineStore('store', () => {
   async function refreshSource(id: string) {
     try {
       await storeApi.refreshSource(id)
+      // 刷新源后重新获取商店应用列表
+      await fetchApps()
     } catch (e) {
       console.error('刷新商店源失败', e)
       throw e
@@ -75,6 +78,18 @@ export const useStoreStore = defineStore('store', () => {
     await appActionsApi.stop(id)
   }
 
+  function startPolling(intervalMs = 5000) {
+    stopPolling()
+    pollingTimer = setInterval(fetchApps, intervalMs)
+  }
+
+  function stopPolling() {
+    if (pollingTimer) {
+      clearInterval(pollingTimer)
+      pollingTimer = null
+    }
+  }
+
   return {
     apps,
     sources,
@@ -89,5 +104,7 @@ export const useStoreStore = defineStore('store', () => {
     installApp,
     startApp,
     stopApp,
+    startPolling,
+    stopPolling,
   }
 })

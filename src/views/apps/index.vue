@@ -52,7 +52,7 @@
           @click="openStoreDetail(app)"
         >
           <div class="app-card-head">
-            <AppIcon :name="app.name" :tone="appTone(app.id)" size="md" />
+            <AppIcon :name="app.name" :icon="appIconUrl(app)" :tone="appTone(app.id)" size="md" />
             <n-tag v-if="app.official" round size="small" type="info">官方</n-tag>
           </div>
           <h3 class="app-card-title">{{ app.name }}</h3>
@@ -94,13 +94,23 @@
           class="installed-row"
           @click="openInstalledDetail(app)"
         >
-          <AppIcon :name="app.name" :tone="appTone(app.id)" size="md" />
+          <AppIcon :name="app.name" :icon="installedAppIconUrl(app)" :tone="appTone(app.id)" size="md" />
           <div class="installed-info">
             <strong class="installed-name">{{ app.name }}</strong>
             <span class="installed-meta">{{ app.version }} · {{ app.base_url }}</span>
           </div>
           <StatusBadge :status="app.status" />
           <div class="installed-actions" @click.stop>
+            <n-tooltip trigger="hover" placement="top">
+              <template #trigger>
+                <n-switch
+                  size="small"
+                  :value="settingsStore.isAppVisible(app.id)"
+                  @update:value="(v: boolean) => settingsStore.toggleAppVisible(app.id, v)"
+                />
+              </template>
+              侧栏{{ settingsStore.isAppVisible(app.id) ? '隐藏' : '显示' }}此应用
+            </n-tooltip>
             <n-button
               v-if="app.status === 'running' && app.web_path"
               size="small"
@@ -133,7 +143,7 @@
     <n-modal v-model:show="detailVisible" :mask-closable="true">
       <div v-if="detailApp" class="detail-panel pnos-surface">
         <div class="detail-header">
-          <AppIcon :name="detailApp.name" :tone="appTone(detailApp.id)" size="lg" />
+          <AppIcon :name="detailApp.name" :icon="isStoreApp ? appIconUrl(detailApp as StoreApp) : installedAppIconUrl(detailApp as ComponentInfo)" :tone="appTone(detailApp.id)" size="lg" />
           <div class="detail-title-group">
             <div class="detail-title-row">
               <h2 class="detail-title">{{ detailApp.name }}</h2>
@@ -217,6 +227,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { useMessage } from 'naive-ui'
 import PageHeader from '@/components/PageHeader.vue'
 import AppIcon from '@/components/AppIcon.vue'
@@ -228,6 +239,7 @@ import { useSettingsStore } from '@/stores/settings'
 import type { StoreApp, ComponentInfo } from '@/types'
 
 const message = useMessage()
+const router = useRouter()
 const componentsStore = useComponentsStore()
 const storeStore = useStoreStore()
 const settingsStore = useSettingsStore()
@@ -285,6 +297,33 @@ function appTone(id: string): 'blue' | 'green' | 'orange' | 'red' | 'violet' | '
   return tones[Math.abs(hash) % tones.length]
 }
 
+// 商店资源 base URL（从商店源 URL 解析，去掉 index.json）
+const storeBaseUrl = computed(() => {
+  const source = storeStore.sources.find((s) => s.enabled) || storeStore.sources[0]
+  if (!source?.url) return ''
+  return source.url.replace(/\/[^\/]*$/, '/')
+})
+
+function appIconUrl(app: StoreApp): string {
+  if (!app.icon) return ''
+  if (app.icon.startsWith('http://') || app.icon.startsWith('https://')) return app.icon
+  // app.yml 中的 icon 是相对于 app.yml 所在目录的文件名，需要拼接 apps/{id}/ 前缀
+  if (!app.icon.includes('/')) {
+    return storeBaseUrl.value + 'apps/' + app.id + '/' + app.icon
+  }
+  return storeBaseUrl.value + app.icon
+}
+
+function installedAppIconUrl(app: ComponentInfo): string {
+  const storeApp = storeStore.apps.find((a) => a.id === app.id)
+  if (!storeApp?.icon) return ''
+  if (storeApp.icon.startsWith('http://') || storeApp.icon.startsWith('https://')) return storeApp.icon
+  if (!storeApp.icon.includes('/')) {
+    return storeBaseUrl.value + 'apps/' + app.id + '/' + storeApp.icon
+  }
+  return storeBaseUrl.value + storeApp.icon
+}
+
 function formatTime(iso: string): string {
   if (!iso) return '-'
   try {
@@ -335,17 +374,20 @@ async function toggleApp(app: ComponentInfo) {
   }
 }
 
+/** 应用内打开：进入 App Shell（iframe），侧栏保留 */
 function openAppWeb(app: ComponentInfo) {
-  const path = app.web_path || '/'
-  window.open(`/app/${app.id}${path}`, '_blank')
+  router.push(`/app/${app.id}`)
 }
 
 function startPolling() {
   componentsStore.stopPolling()
   componentsStore.startPolling(settingsStore.refreshInterval)
+  storeStore.stopPolling()
+  storeStore.startPolling(settingsStore.refreshInterval)
 }
 
 onMounted(() => {
+  storeStore.fetchSources()
   storeStore.fetchApps()
   componentsStore.fetch()
   startPolling()
@@ -353,6 +395,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   componentsStore.stopPolling()
+  storeStore.stopPolling()
 })
 
 watch(() => settingsStore.refreshInterval, () => {
@@ -492,6 +535,10 @@ watch(() => settingsStore.refreshInterval, () => {
   margin-top: 16px;
 }
 
+.app-card-footer .n-button {
+  margin-left: auto;
+}
+
 .app-version {
   color: var(--pnos-subtle);
   font-size: 11px;
@@ -611,6 +658,7 @@ watch(() => settingsStore.refreshInterval, () => {
 
 .detail-actions {
   display: flex;
+  justify-content: flex-end;
   gap: 12px;
   padding-top: 8px;
 }

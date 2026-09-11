@@ -18,6 +18,11 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/apps/index.vue'),
       },
       {
+        path: 'app/:id',
+        name: 'AppShell',
+        component: () => import('@/views/app-shell/index.vue'),
+      },
+      {
         path: 'store',
         redirect: '/apps',
       },

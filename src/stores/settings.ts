@@ -12,6 +12,7 @@ interface PersistedSettings {
   memoryAlertThreshold: number
   diskAlertThreshold: number
   autoUpdateApps: boolean
+  hiddenApps: string[]
 }
 
 const defaults: PersistedSettings = {
@@ -21,6 +22,7 @@ const defaults: PersistedSettings = {
   memoryAlertThreshold: 85,
   diskAlertThreshold: 75,
   autoUpdateApps: false,
+  hiddenApps: [],
 }
 
 function load(): PersistedSettings {
@@ -52,6 +54,19 @@ export const useSettingsStore = defineStore('settings', () => {
   const memoryAlertThreshold = ref(persisted.value.memoryAlertThreshold)
   const diskAlertThreshold = ref(persisted.value.diskAlertThreshold)
   const autoUpdateApps = ref(persisted.value.autoUpdateApps)
+  const hiddenApps = ref<string[]>(persisted.value.hiddenApps ?? [])
+
+  /** 应用开关：控制是否在侧栏展示（true=显示） */
+  function toggleAppVisible(appId: string, visible: boolean) {
+    const set = new Set(hiddenApps.value)
+    if (visible) set.delete(appId)
+    else set.add(appId)
+    hiddenApps.value = Array.from(set)
+  }
+
+  function isAppVisible(appId: string): boolean {
+    return !hiddenApps.value.includes(appId)
+  }
 
   function applyTheme(mode: ThemeMode) {
     theme.value = mode
@@ -62,7 +77,7 @@ export const useSettingsStore = defineStore('settings', () => {
     applyTheme(theme.value)
   }
 
-  watch([theme, refreshInterval, cpuAlertThreshold, memoryAlertThreshold, diskAlertThreshold, autoUpdateApps], () => {
+  watch([theme, refreshInterval, cpuAlertThreshold, memoryAlertThreshold, diskAlertThreshold, autoUpdateApps, hiddenApps], () => {
     save({
       theme: theme.value,
       refreshInterval: refreshInterval.value,
@@ -70,6 +85,7 @@ export const useSettingsStore = defineStore('settings', () => {
       memoryAlertThreshold: memoryAlertThreshold.value,
       diskAlertThreshold: diskAlertThreshold.value,
       autoUpdateApps: autoUpdateApps.value,
+      hiddenApps: hiddenApps.value,
     })
   })
 
@@ -80,6 +96,9 @@ export const useSettingsStore = defineStore('settings', () => {
     memoryAlertThreshold,
     diskAlertThreshold,
     autoUpdateApps,
+    hiddenApps,
+    toggleAppVisible,
+    isAppVisible,
     applyTheme,
     initTheme,
   }

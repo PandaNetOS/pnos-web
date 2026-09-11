@@ -1,20 +1,30 @@
 <template>
   <div class="app-icon" :class="[sizeClass, toneClass]">
-    <span>{{ initial }}</span>
+    <img v-if="showIcon" :src="icon" alt="icon" class="icon-img" @error="iconError = true" />
+    <span v-else>{{ initial }}</span>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 const props = withDefaults(
   defineProps<{
     name: string
+    icon?: string
     size?: 'sm' | 'md' | 'lg'
     tone?: 'blue' | 'green' | 'orange' | 'red' | 'violet' | 'slate'
   }>(),
-  { size: 'md', tone: 'blue' },
+  { size: 'md', tone: 'blue', icon: '' },
 )
+
+const iconError = ref(false)
+const showIcon = computed(() => props.icon && !iconError.value)
+
+// 当 icon URL 变化时重置错误状态，重新尝试加载
+watch(() => props.icon, () => {
+  iconError.value = false
+})
 
 const initial = computed(() => {
   const n = props.name?.trim() || '?'
@@ -34,6 +44,13 @@ const toneClass = computed(() => `tone-${props.tone}`)
   border-radius: 12px;
   flex-shrink: 0;
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+}
+.icon-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
 }
 .icon-sm {
   width: 34px;
