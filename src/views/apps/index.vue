@@ -27,22 +27,22 @@
       </n-input>
     </div>
 
+    <!-- 分类筛选（商店/已安装共用） -->
+    <div v-if="storeStore.categories.length" class="category-pills">
+      <button
+        :class="['pill', { active: category === 'all' }]"
+        @click="category = 'all'"
+      >全部</button>
+      <button
+        v-for="cat in storeStore.categories"
+        :key="cat"
+        :class="['pill', { active: category === cat }]"
+        @click="category = cat"
+      >{{ categoryLabel(cat) }}</button>
+    </div>
+
     <!-- 商店 tab -->
     <div v-if="activeTab === 'store'" class="tab-content">
-      <!-- 分类筛选 -->
-      <div v-if="storeStore.categories.length" class="category-pills">
-        <button
-          :class="['pill', { active: category === 'all' }]"
-          @click="category = 'all'"
-        >全部</button>
-        <button
-          v-for="cat in storeStore.categories"
-          :key="cat"
-          :class="['pill', { active: category === cat }]"
-          @click="category = cat"
-        >{{ categoryLabel(cat) }}</button>
-      </div>
-
       <!-- 应用卡片网格 -->
       <div v-if="filteredStoreApps.length" class="app-grid">
         <article
@@ -59,19 +59,26 @@
           <p class="app-card-desc">{{ app.description || '实用的服务器服务' }}</p>
           <div class="app-card-footer">
             <span class="app-version">v{{ app.version }}</span>
-            <n-button
-              v-if="!componentsStore.isInstalled(app.id)"
-              type="primary"
-              secondary
-              size="small"
-              :loading="storeStore.installingId === app.id"
-              @click.stop="installApp(app)"
-            >安装</n-button>
-            <n-button
-              v-else
-              size="small"
-              @click.stop="activeTab = 'installed'"
-            >已安装</n-button>
+            <InstallProgress
+              v-if="storeStore.installingId === app.id"
+              :phase="installProg?.phase ?? null"
+              :percent="ipPercent"
+              @click.stop
+            />
+            <template v-else>
+              <n-button
+                v-if="!componentsStore.isInstalled(app.id)"
+                type="primary"
+                secondary
+                size="small"
+                @click.stop="installApp(app)"
+              >安装</n-button>
+              <n-button
+                v-else
+                size="small"
+                @click.stop="activeTab = 'installed'"
+              >已安装</n-button>
+            </template>
           </div>
         </article>
       </div>
@@ -87,20 +94,23 @@
 
     <!-- 已安装 tab -->
     <div v-else class="tab-content">
-      <div v-if="installedApps.length" class="installed-list pnos-surface">
-        <div
+      <div v-if="installedApps.length" class="app-grid">
+        <article
           v-for="app in installedApps"
           :key="app.id"
-          class="installed-row"
+          :class="['app-card', 'pnos-surface', { disabled: app.status !== 'running' }]"
           @click="openInstalledDetail(app)"
         >
-          <AppIcon :name="app.name" :icon="installedAppIconUrl(app)" :tone="appTone(app.id)" size="md" />
-          <div class="installed-info">
-            <strong class="installed-name">{{ app.name }}</strong>
-            <span class="installed-meta">{{ app.version }} · {{ app.base_url }}</span>
+          <div class="app-card-head">
+            <AppIcon :name="app.name" :icon="installedAppIconUrl(app)" :tone="appTone(app.id)" size="md" />
+            <StatusBadge :status="app.status" />
           </div>
-          <StatusBadge :status="app.status" />
-          <div class="installed-actions" @click.stop>
+          <h3 class="app-card-title">{{ app.name }}</h3>
+          <p class="app-card-desc installed-meta">
+            <span class="app-version">v{{ app.version }}</span>
+            <span class="meta-url">{{ app.base_url }}</span>
+          </p>
+          <div class="app-card-footer" @click.stop>
             <n-tooltip trigger="hover" placement="top">
               <template #trigger>
                 <n-switch
@@ -111,22 +121,36 @@
               </template>
               侧栏{{ settingsStore.isAppVisible(app.id) ? '隐藏' : '显示' }}此应用
             </n-tooltip>
-            <n-button
-              v-if="app.status === 'running' && app.web_path"
-              size="small"
-              type="primary"
-              secondary
-              @click="openAppWeb(app)"
-            >打开</n-button>
-            <n-button
-              size="small"
-              :loading="actionLoadingId === app.id"
-              @click="toggleApp(app)"
-            >
-              {{ app.status === 'running' ? '停止' : '启动' }}
-            </n-button>
+            <div class="card-actions">
+              <n-button
+                v-if="app.status === 'running' && app.web_path"
+                size="small"
+                type="primary"
+                secondary
+                @click="openAppWeb(app)"
+              >打开</n-button>
+              <n-button
+                size="small"
+                :loading="actionLoadingId === app.id"
+                @click="toggleApp(app)"
+              >
+                {{ app.status === 'running' ? '停止' : '启动' }}
+              </n-button>
+              <n-popconfirm v-if="storeStore.isStoreInstalled(app.id)" @positive-click="uninstallApp(app)">
+                <template #trigger>
+                  <n-button size="small" quaternary type="error">卸载</n-button>
+                </template>
+                确认卸载 {{ app.name }}？应用文件将被移除（数据保留）。
+              </n-popconfirm>
+              <n-popconfirm v-else @positive-click="unregisterApp(app)">
+                <template #trigger>
+                  <n-button size="small" quaternary type="error">移除</n-button>
+                </template>
+                确认从列表移除 {{ app.name }}？运行中的组件会被移除注册，恢复需组件重新上线。
+              </n-popconfirm>
+            </div>
           </div>
-        </div>
+        </article>
       </div>
 
       <EmptyState
@@ -173,18 +197,25 @@
               </div>
             </div>
             <div class="detail-actions">
-              <n-button
-                v-if="!componentsStore.isInstalled(detailApp.id)"
-                type="primary"
-                size="large"
-                :loading="storeStore.installingId === detailApp.id"
-                @click="installApp(detailApp as any)"
-              >安装应用</n-button>
-              <n-button
-                v-else
-                size="large"
-                @click="activeTab = 'installed'; detailVisible = false"
-              >查看已安装</n-button>
+              <InstallProgress
+                v-if="storeStore.installingId === detailApp.id"
+                block
+                :phase="installProg?.phase ?? null"
+                :percent="ipPercent"
+              />
+              <template v-else>
+                <n-button
+                  v-if="!componentsStore.isInstalled(detailApp.id)"
+                  type="primary"
+                  size="large"
+                  @click="installApp(detailApp as any)"
+                >安装应用</n-button>
+                <n-button
+                  v-else
+                  size="large"
+                  @click="activeTab = 'installed'; detailVisible = false"
+                >查看已安装</n-button>
+              </template>
             </div>
           </template>
 
@@ -206,6 +237,22 @@
               </div>
             </div>
             <div class="detail-actions">
+              <template v-if="storeStore.isStoreInstalled(detailApp.id)">
+                <n-popconfirm @positive-click="uninstallApp(detailApp as any)">
+                  <template #trigger>
+                    <n-button size="large" quaternary type="error">卸载</n-button>
+                  </template>
+                  确认卸载 {{ (detailApp as any).name }}？应用文件将被移除（数据保留）。
+                </n-popconfirm>
+              </template>
+              <template v-else>
+                <n-popconfirm @positive-click="unregisterApp(detailApp as any)">
+                  <template #trigger>
+                    <n-button size="large" quaternary type="error">移除</n-button>
+                  </template>
+                  确认从列表移除 {{ (detailApp as any).name }}？
+                </n-popconfirm>
+              </template>
               <n-button
                 v-if="(detailApp as any).status === 'running' && (detailApp as any).web_path"
                 type="primary"
@@ -232,6 +279,7 @@ import { useMessage } from 'naive-ui'
 import PageHeader from '@/components/PageHeader.vue'
 import AppIcon from '@/components/AppIcon.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
+import InstallProgress from '@/components/InstallProgress.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import { useComponentsStore } from '@/stores/components'
 import { useStoreStore } from '@/stores/store'
@@ -282,8 +330,10 @@ const filteredStoreApps = computed(() => {
 const installedApps = computed(() => {
   const q = search.value.trim().toLowerCase()
   return componentsStore.apps.filter((app) => {
-    if (!q) return true
-    return app.name.toLowerCase().includes(q) || app.id.toLowerCase().includes(q)
+    const matchSearch = !q || app.name.toLowerCase().includes(q) || app.id.toLowerCase().includes(q)
+    // 分类取自商店同 id 应用；无商店信息的组件视为未分类，仅在"全部"下显示
+    const matchCategory = category.value === 'all' || storeStore.apps.find((a) => a.id === app.id)?.categories?.includes(category.value) || false
+    return matchSearch && matchCategory
   })
 })
 
@@ -347,12 +397,51 @@ function openInstalledDetail(app: ComponentInfo) {
 }
 
 async function installApp(app: StoreApp) {
+  installProg.value = { phase: 'downloading', percent: null }
+  startProgressPolling(app.id)
   try {
     await storeStore.installApp(app.id)
-    message.success(`正在安装 ${app.name}`)
+    message.success(`安装完成 ${app.name}`)
+    installProg.value = null
     await componentsStore.fetch()
+    storeStore.fetchInstalled()
   } catch (e: any) {
     message.error(e.message || '安装失败')
+    installProg.value = null
+  } finally {
+    stopProgressPolling()
+  }
+}
+
+// ---- 安装进度轮询 ----
+const installProg = ref<{ phase: string; percent: number | null } | null>(null)
+let progressTimer: ReturnType<typeof setInterval> | null = null
+
+const ipPercent = computed(() => installProg.value?.percent ?? null)
+
+function startProgressPolling(id: string) {
+  stopProgressPolling()
+  const poll = async () => {
+    try {
+      const p = await storeStore.fetchInstallProgress(id)
+      if (p && p.phase !== 'done') {
+        installProg.value = {
+          phase: p.phase,
+          percent: p.total ? Math.min(99, Math.round((p.downloaded / p.total) * 100)) : null,
+        }
+      }
+    } catch {
+      /* 轮询失败忽略，下一轮重试 */
+    }
+  }
+  poll()
+  progressTimer = setInterval(poll, 600)
+}
+
+function stopProgressPolling() {
+  if (progressTimer) {
+    clearInterval(progressTimer)
+    progressTimer = null
   }
 }
 
@@ -379,6 +468,40 @@ function openAppWeb(app: ComponentInfo) {
   router.push(`/app/${app.id}`)
 }
 
+async function uninstallApp(app: ComponentInfo) {
+  actionLoadingId.value = app.id
+  try {
+    await storeStore.uninstallApp(app.id)
+    message.success(`已卸载 ${app.name}`)
+    detailVisible.value = false
+    setTimeout(() => {
+      componentsStore.fetch()
+      storeStore.fetchInstalled()
+    }, 500)
+  } catch (e: any) {
+    message.error(e.message || '卸载失败')
+  } finally {
+    actionLoadingId.value = null
+  }
+}
+
+async function unregisterApp(app: ComponentInfo) {
+  actionLoadingId.value = app.id
+  try {
+    await storeStore.unregisterApp(app.id)
+    message.success(`已移除 ${app.name}`)
+    detailVisible.value = false
+    setTimeout(() => {
+      componentsStore.fetch()
+      storeStore.fetchInstalled()
+    }, 500)
+  } catch (e: any) {
+    message.error(e.message || '移除失败')
+  } finally {
+    actionLoadingId.value = null
+  }
+}
+
 function startPolling() {
   componentsStore.stopPolling()
   componentsStore.startPolling(settingsStore.refreshInterval)
@@ -389,6 +512,7 @@ function startPolling() {
 onMounted(() => {
   storeStore.fetchSources()
   storeStore.fetchApps()
+  storeStore.fetchInstalled()
   componentsStore.fetch()
   startPolling()
 })
@@ -396,6 +520,7 @@ onMounted(() => {
 onUnmounted(() => {
   componentsStore.stopPolling()
   storeStore.stopPolling()
+  stopProgressPolling()
 })
 
 watch(() => settingsStore.refreshInterval, () => {
@@ -535,59 +660,41 @@ watch(() => settingsStore.refreshInterval, () => {
   margin-top: 16px;
 }
 
-.app-card-footer .n-button {
-  margin-left: auto;
-}
-
 .app-version {
   color: var(--pnos-subtle);
   font-size: 11px;
   font-family: 'SF Mono', Monaco, monospace;
 }
 
-.installed-list {
-  overflow: hidden;
-}
-
-.installed-row {
+.installed-meta {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 14px 18px;
-  border-top: 1px solid var(--pnos-border);
-  cursor: pointer;
-  transition: background 0.15s ease;
-}
-
-.installed-row:first-child { border-top: 0; }
-.installed-row:hover { background: #fafbfc; }
-
-.installed-info {
-  flex: 1;
+  gap: 8px;
   min-width: 0;
 }
 
-.installed-name {
-  display: block;
-  font-size: 14px;
-  font-weight: 600;
+.installed-meta .app-version {
+  flex-shrink: 0;
 }
 
-.installed-meta {
-  display: block;
-  color: var(--pnos-muted);
-  margin-top: 3px;
-  font-size: 11.5px;
+.meta-url {
+  color: var(--pnos-subtle);
+  font-size: 11px;
   font-family: 'SF Mono', Monaco, monospace;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.installed-actions {
+.card-actions {
   display: flex;
   gap: 8px;
-  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.app-card.disabled .app-card-title,
+.app-card.disabled .app-card-desc {
+  opacity: 0.55;
 }
 
 .detail-panel {
@@ -675,7 +782,5 @@ watch(() => settingsStore.refreshInterval, () => {
   }
   .apps-search { width: 100%; }
   .app-grid { grid-template-columns: 1fr; }
-  .installed-row { flex-wrap: wrap; }
-  .installed-actions { width: 100%; }
 }
 </style>

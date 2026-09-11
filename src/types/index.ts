@@ -121,3 +121,10 @@ export interface StoreSource {
   enabled: boolean
   [key: string]: unknown
 }
+
+export interface InstallProgress {
+  phase: 'downloading' | 'extracting' | 'starting' | 'done'
+  downloaded: number
+  total: number | null
+  message?: string
+}

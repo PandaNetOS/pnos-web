@@ -6,6 +6,8 @@ import type { StoreApp, StoreSource } from '@/types'
 export const useStoreStore = defineStore('store', () => {
   const apps = ref<StoreApp[]>([])
   const sources = ref<StoreSource[]>([])
+  // 商店已安装记录（仅商店安装的应用可卸载；pnos-comm 注册的组件不在此列）
+  const installedIds = ref<Set<string>>(new Set())
   const loadingApps = ref(false)
   const loadingSources = ref(false)
   const installingId = ref<string | null>(null)
@@ -78,6 +80,32 @@ export const useStoreStore = defineStore('store', () => {
     await appActionsApi.stop(id)
   }
 
+  async function uninstallApp(id: string, keepData = true) {
+    await storeApi.uninstall(id, keepData)
+  }
+
+  /** 移除非商店注册的外部组件（从 runtime 注册表注销） */
+  async function unregisterApp(id: string) {
+    await appActionsApi.unregister(id)
+  }
+
+  async function fetchInstallProgress(id: string) {
+    return await storeApi.installProgress(id)
+  }
+
+  async function fetchInstalled() {
+    try {
+      const list = await storeApi.listInstalled()
+      installedIds.value = new Set(list.map((i) => i.id))
+    } catch (e) {
+      console.error('获取已安装列表失败', e)
+    }
+  }
+
+  function isStoreInstalled(id: string): boolean {
+    return installedIds.value.has(id)
+  }
+
   function startPolling(intervalMs = 5000) {
     stopPolling()
     pollingTimer = setInterval(fetchApps, intervalMs)
@@ -104,6 +132,11 @@ export const useStoreStore = defineStore('store', () => {
     installApp,
     startApp,
     stopApp,
+    uninstallApp,
+    unregisterApp,
+    fetchInstallProgress,
+    fetchInstalled,
+    isStoreInstalled,
     startPolling,
     stopPolling,
   }

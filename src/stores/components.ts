@@ -8,7 +8,7 @@ export const useComponentsStore = defineStore('components', () => {
   const loading = ref(false)
   let pollingTimer: ReturnType<typeof setInterval> | null = null
 
-  const apps = computed(() => list.value.filter((c) => c.component_type === 'app'))
+  const apps = computed(() => list.value.filter((c) => c.component_type === 'app' || c.component_type === 'pk'))
   const agents = computed(() => list.value.filter((c) => c.component_type === 'agent'))
   const running = computed(() => list.value.filter((c) => c.status === 'running'))
   const offline = computed(() => list.value.filter((c) => c.status === 'offline' || c.status === 'error' || c.status === 'stopped'))

@@ -2,6 +2,7 @@ import axios, { type AxiosInstance, type AxiosRequestConfig } from 'axios'
 import type {
   ApiResponse,
   ComponentInfo,
+  InstallProgress,
   SystemInfo,
   SystemStats,
   StoreApp,
@@ -62,9 +63,13 @@ export const componentsApi = {
 // ===== 应用操作 API（商店应用的安装/启停） =====
 
 export const appActionsApi = {
-  install: (id: string): Promise<string> => http.post(`/apps/${id}/install`),
-  start: (id: string): Promise<string> => http.post(`/apps/${id}/start`),
-  stop: (id: string): Promise<string> => http.post(`/apps/${id}/stop`),
+  // 统一走 /installed/* 家族（install_service，带安装进度），不用旧版 /apps/* 兼容路径
+  // 安装可能持续较久（下载+解压+试运行），放宽前端超时
+  install: (id: string): Promise<string> => http.post(`/installed/${id}/install`, null, { timeout: 600000 }),
+  start: (id: string): Promise<string> => http.post(`/installed/${id}/start`),
+  stop: (id: string): Promise<string> => http.post(`/installed/${id}/stop`),
+  /** 注销外部注册组件（pnos-comm 注册的，如 pk），从 runtime 注册表移除 */
+  unregister: (id: string): Promise<boolean> => http.post('/apps/unregister', { id }),
 }
 
 // ===== 商店 API =====
@@ -74,6 +79,11 @@ export const storeApi = {
   refreshSource: (id: string): Promise<void> => http.post(`/store/sources/${id}/refresh`),
   listApps: (): Promise<StoreApp[]> => http.get('/store/apps'),
   getAppDetail: (id: string): Promise<StoreApp> => http.get(`/store/apps/${id}`),
+  uninstall: (id: string, keepData = true): Promise<void> =>
+    http.delete(`/installed/${id}/uninstall`, { params: { keep_data: keepData } }),
+  listInstalled: (): Promise<Array<{ id: string }>> => http.get('/installed'),
+  installProgress: (id: string): Promise<InstallProgress | null> =>
+    http.get(`/installed/${id}/progress`),
 }
 
 export default http
