@@ -40,10 +40,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useComponentsStore } from '@/stores/components'
 import { useStoreStore } from '@/stores/store'
+import { useSettingsStore } from '@/stores/settings'
 import AppIcon from '@/components/AppIcon.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import EmptyState from '@/components/EmptyState.vue'
@@ -51,6 +52,7 @@ import EmptyState from '@/components/EmptyState.vue'
 const route = useRoute()
 const componentsStore = useComponentsStore()
 const storeStore = useStoreStore()
+const settingsStore = useSettingsStore()
 
 const appId = computed(() => String(route.params.id || ''))
 const app = computed(() => componentsStore.getById(appId.value))
@@ -83,16 +85,19 @@ const iconUrl = computed(() => {
   return storeBaseUrl.value + icon
 })
 
-/** iframe 地址：优先对外地址 serve_url，否则 base_url + web_path */
+/** iframe 地址：优先对外地址 serve_url，否则 base_url + web_path；内嵌时带 embed + 当前主题 */
 const src = computed(() => {
   const a = app.value
   if (!a) return ''
-  if (a.serve_url) return a.serve_url
-  if (a.base_url) {
+  let base = ''
+  if (a.serve_url) base = a.serve_url
+  else if (a.base_url) {
     const path = a.web_path || '/'
-    return a.base_url.replace(/\/$/, '') + (path.startsWith('/') ? path : '/' + path)
+    base = a.base_url.replace(/\/$/, '') + (path.startsWith('/') ? path : '/' + path)
   }
-  return ''
+  if (!base) return ''
+  const sep = base.includes('?') ? '&' : '?'
+  return `${base}${sep}embed=1&theme=${settingsStore.theme}`
 })
 
 function reload() {
@@ -106,6 +111,17 @@ function openNewTab() {
 onMounted(() => {
   if (!componentsStore.list.length) componentsStore.fetch()
 })
+
+// 主题切换时推送给内嵌的 pk iframe（pk 内 app.js 监听 message 同步 data-theme）
+watch(
+  () => settingsStore.theme,
+  (t) => {
+    const frame = document.querySelector('.shell-frame')
+    if (frame && (frame as HTMLIFrameElement).contentWindow) {
+      ;(frame as HTMLIFrameElement).contentWindow!.postMessage({ type: 'pnos-theme', theme: t }, '*')
+    }
+  }
+)
 </script>
 
 <style scoped>
