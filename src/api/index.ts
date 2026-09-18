@@ -3,6 +3,7 @@ import type {
   ApiResponse,
   ComponentInfo,
   InstallProgress,
+  RuntimeConfig,
   SystemInfo,
   SystemStats,
   StoreApp,
@@ -51,6 +52,8 @@ const http = createTransport()
 export const systemApi = {
   getInfo: (): Promise<SystemInfo> => http.get('/system/info'),
   getStats: (): Promise<SystemStats> => http.get('/system/stats'),
+  /** 运行时实际生效的配置（端口 / 反代前缀 / CORS），供设置页展示真实值 */
+  getConfig: (): Promise<RuntimeConfig> => http.get('/system/config'),
 }
 
 // ===== 组件 API（统一 /components 路径） =====

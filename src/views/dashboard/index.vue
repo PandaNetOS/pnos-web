@@ -4,18 +4,18 @@
       <div>
         <div class="pnos-eyebrow">系统概览</div>
         <h1 class="pnos-page-title">{{ serverName }}</h1>
-        <p class="pnos-page-description">这台服务器目前一切运行正常。</p>
+        <p class="pnos-page-description">{{ healthSummary }}</p>
       </div>
-      <div class="overview-status" :class="healthLevel">
+      <div class="overview-status" :class="status">
         <span class="status-orb" />
         <div>
           <strong>{{ healthLabel }}</strong>
-          <span>已运行 {{ uptimeText }}</span>
+          <span>{{ uptimeLine }}</span>
         </div>
       </div>
     </header>
 
-    <section class="health-line" :class="healthLevel" aria-live="polite">
+    <section class="health-line" :class="status" aria-live="polite">
       <span class="health-line-mark" aria-hidden="true"><span /></span>
       <div class="health-line-copy">
         <strong>{{ healthTitle }}</strong>
@@ -100,38 +100,21 @@
       </div>
     </section>
 
-    <section class="activity-grid">
-      <div class="overview-section activity-section">
-        <div class="section-heading">
-          <div>
-            <h2>最近活动</h2>
-            <p>系统最近的变化</p>
-          </div>
-        </div>
-        <div class="activity-list">
-          <div v-for="item in activities" :key="item.title" class="activity-item">
-            <span class="activity-icon" :class="item.tone">{{ item.icon }}</span>
-            <div><strong>{{ item.title }}</strong><span>{{ item.time }}</span></div>
-          </div>
+    <section class="overview-section attention-section" :class="storageStatus.level">
+      <div class="section-heading">
+        <div>
+          <h2>需要注意</h2>
+          <p>只有真正需要处理的事项才会出现在这里</p>
         </div>
       </div>
-
-      <div class="overview-section attention-section" :class="storageStatus.level">
-        <div class="section-heading">
-          <div>
-            <h2>需要注意</h2>
-            <p>只有真正需要处理的事项才会出现在这里</p>
-          </div>
+      <div class="attention-content">
+        <div class="attention-mark">{{ storageStatus.icon }}</div>
+        <div class="attention-copy">
+          <strong>{{ storageStatus.title }}</strong>
+          <span>{{ storageFree }} 可用。{{ storageStatus.hint }}</span>
         </div>
-        <div class="attention-content">
-          <div class="attention-mark">{{ storageStatus.icon }}</div>
-          <div class="attention-copy">
-            <strong>{{ storageStatus.title }}</strong>
-            <span>{{ storageFree }} 可用。{{ storageStatus.hint }}</span>
-          </div>
-          <n-button v-if="storageStatus.level !== 'ok'" text type="primary" @click="router.push('/settings')">管理</n-button>
-          <span v-else class="attention-ok">目前不需要处理任何事项</span>
-        </div>
+        <n-button v-if="storageStatus.level !== 'ok'" text type="primary" @click="router.push('/settings')">管理</n-button>
+        <span v-else class="attention-ok">目前不需要处理任何事项</span>
       </div>
     </section>
   </div>
@@ -192,9 +175,19 @@ const load1 = computed(() => Number(systemStore.stats?.load_average?.[0] ?? 0).t
 const load5 = computed(() => Number(systemStore.stats?.load_average?.[1] ?? 0).toFixed(2))
 const serverName = computed(() => systemStore.serverName)
 const healthLevel = computed(() => systemStore.healthLevel)
-const healthLabel = computed(() => healthLevel.value === 'healthy' ? '运行正常' : healthLevel.value === 'warning' ? '需要注意' : '需要处理')
-const healthTitle = computed(() => healthLevel.value === 'healthy' ? '一切运行正常' : healthLevel.value === 'warning' ? '服务器运行正常，但有事项需要留意' : '服务器需要你的关注')
-const healthDetail = computed(() => healthLevel.value === 'healthy' ? `CPU ${cpuUsage.value}% · 内存 ${memoryUsage.value}% · 存储 ${storageUsage.value}%` : [storageUsage.value >= 75 ? `存储 ${storageUsage.value}%` : '', cpuUsage.value >= 85 ? `CPU ${cpuUsage.value}%` : '', memoryUsage.value >= 85 ? `内存 ${memoryUsage.value}%` : ''].filter(Boolean).join(' · '))
+/** offline 优先：后端拉不到数据时不显示"运行正常" */
+const status = computed(() => systemStore.systemStatus)
+const uptimeLine = computed(() => status.value === 'offline' ? '数据不可用' : `已运行 ${systemStore.uptimeText}`)
+const healthLabel = computed(() => {
+  if (status.value === 'offline') return '后端未连接'
+  return healthLevel.value === 'healthy' ? '运行正常' : healthLevel.value === 'warning' ? '需要注意' : '需要处理'
+})
+const healthSummary = computed(() => {
+  if (status.value === 'offline') return '暂时无法连接到 pnos-runtime，以下数据可能已过期。'
+  return healthLevel.value === 'healthy' ? '这台服务器目前一切运行正常。' : '服务器在运行，但有指标需要你留意。'
+})
+const healthTitle = computed(() => status.value === 'offline' ? '无法连接到 pnos-runtime' : healthLevel.value === 'healthy' ? '一切运行正常' : healthLevel.value === 'warning' ? '服务器运行正常，但有事项需要留意' : '服务器需要你的关注')
+const healthDetail = computed(() => status.value === 'offline' ? '请确认运行时已启动（默认监听 8080），或检查浏览器到它的网络连通性。' : healthLevel.value === 'healthy' ? `CPU ${cpuUsage.value}% · 内存 ${memoryUsage.value}% · 存储 ${storageUsage.value}%` : [systemStore.storageLevel !== 'healthy' ? `存储 ${storageUsage.value}%` : '', systemStore.cpuLevel !== 'healthy' ? `CPU ${cpuUsage.value}%` : '', systemStore.memoryLevel !== 'healthy' ? `内存 ${memoryUsage.value}%` : ''].filter(Boolean).join(' · '))
 
 const apps = computed(() => componentsStore.apps.slice(0, 5).map((item) => ({
   name: item.name || item.id || 'Application',
@@ -205,16 +198,9 @@ const apps = computed(() => componentsStore.apps.slice(0, 5).map((item) => ({
   raw: item,
 })))
 
-const activities = computed(() => [
-  { title: '系统状态已更新', time: '刚刚', icon: '✓', tone: 'success' },
-  { title: '应用状态已检查', time: '刚刚', icon: '⌁', tone: 'blue' },
-  { title: apps.value.length ? `${apps.value.length} 个应用在线` : '尚未安装应用', time: '今天', icon: '●', tone: apps.value.length ? 'success' : 'muted' },
-])
-
 const storageStatus = computed(() => {
-  const pct = storageUsage.value
-  if (pct >= 90) return { level: 'danger', icon: '!', title: '存储空间即将用尽', hint: '建议清理不再需要的文件或扩容。' }
-  if (pct >= 75) return { level: 'warning', icon: '!', title: '存储使用率较高', hint: '建议留意剩余空间。' }
+  if (systemStore.storageLevel === 'danger') return { level: 'danger', icon: '!', title: '存储空间即将用尽', hint: '建议清理不再需要的文件或扩容。' }
+  if (systemStore.storageLevel === 'warning') return { level: 'warning', icon: '!', title: '存储使用率较高', hint: '建议留意剩余空间。' }
   return { level: 'ok', icon: '✓', title: '一切正常', hint: '系统会在需要你处理时提醒你。' }
 })
 
@@ -338,6 +324,7 @@ onUnmounted(() => {
 .status-orb { width:8px; height:8px; border-radius:50%; background:var(--pnos-success); box-shadow:0 0 0 4px var(--pnos-success-soft); }
 .overview-status.warning .status-orb { background:var(--pnos-warning); box-shadow:0 0 0 4px var(--pnos-warning-soft); }
 .overview-status.danger .status-orb { background:var(--pnos-danger); box-shadow:0 0 0 4px var(--pnos-danger-soft); }
+.overview-status.offline .status-orb { background:var(--pnos-subtle); box-shadow:0 0 0 4px var(--pnos-surface-soft); }
 .health-line { display:flex; align-items:center; gap:12px; padding:11px 0 13px; margin-bottom:36px; border-top:1px solid var(--pnos-border); border-bottom:1px solid var(--pnos-border); background:transparent; }
 .health-line.warning, .health-line.danger { border-color:var(--pnos-border); }
 .health-line-mark { width:23px; height:23px; display:grid; place-items:center; flex:none; border-radius:50%; background:var(--pnos-success-soft); }
@@ -346,6 +333,8 @@ onUnmounted(() => {
 .health-line.warning .health-line-mark span { background:var(--pnos-warning); }
 .health-line.danger .health-line-mark { background:var(--pnos-danger-soft); }
 .health-line.danger .health-line-mark span { background:var(--pnos-danger); }
+.health-line.offline .health-line-mark { background:var(--pnos-surface-soft); }
+.health-line.offline .health-line-mark span { background:var(--pnos-subtle); }
 .health-line-copy { display:flex; flex-direction:column; min-width:0; flex:1; gap:2px; }
 .health-line-copy strong { font-size:12.5px; font-weight:650; }
 .health-line-copy span { color:var(--pnos-muted); font-size:11.5px; }
@@ -366,15 +355,15 @@ onUnmounted(() => {
 .resource-name { width:38px; color:var(--pnos-subtle); font-size:10px; font-weight:650; letter-spacing:.02em; flex:none; }
 .resource-chart { height:34px; min-width:0; }
 .resource-chart > div { width:100%; height:100%; }
-.storage-meter { height:5px; background:#eceef1; border-radius:999px; overflow:hidden; }
+.storage-meter { height:5px; background:var(--pnos-track); border-radius:999px; overflow:hidden; }
 .storage-meter span { display:block; height:100%; border-radius:inherit; background:#8c93a0; transition:width .8s cubic-bezier(.65,0,.35,1); }
 .resource-value { display:flex; justify-content:flex-end; text-align:right; }
 .resource-value span { color:var(--pnos-muted); font-size:10px; white-space:nowrap; }
-.load-track { height:4px; background:#eceef1; border-radius:999px; overflow:hidden; }
+.load-track { height:4px; background:var(--pnos-track); border-radius:999px; overflow:hidden; }
 .load-track span { display:block; height:100%; border-radius:inherit; background:#8b93a1; transition:width .55s cubic-bezier(.2,.7,.2,1); }
 .app-list { border-top:1px solid var(--pnos-border); }
 .app-item { appearance:none; width:100%; display:grid; grid-template-columns:40px minmax(0,1fr) auto 12px; gap:13px; align-items:center; padding:13px 0; border:0; border-bottom:1px solid var(--pnos-border); background:transparent; text-align:left; cursor:pointer; transition:background .18s ease; }
-.app-item:hover { background:rgba(0,0,0,.014); }
+.app-item:hover { background:var(--pnos-hover-soft); }
 .app-icon { width:38px; height:38px; border-radius:10px; display:grid; place-items:center; color:white; font-size:14px; font-weight:700; box-shadow:inset 0 0 0 1px rgba(0,0,0,.06); }
 .app-icon.violet { background:linear-gradient(145deg,#6c59d9,#8d7bea); }
 .app-icon.blue { background:linear-gradient(145deg,#3f78e8,#6b9af2); }
@@ -393,22 +382,13 @@ onUnmounted(() => {
 .app-state.red { color:var(--pnos-danger); }
 .app-state.blue { color:var(--pnos-primary); }
 .app-state.slate { color:var(--pnos-muted); }
-.chevron { color:#b8bcc4; font-size:18px; line-height:1; transform:translateX(0); transition:transform .18s ease,color .18s ease; }
-.app-item:hover .chevron { color:#9096a0; transform:translateX(2px); }
+.chevron { color:var(--pnos-icon); font-size:18px; line-height:1; transform:translateX(0); transition:transform .18s ease,color .18s ease; }
+.app-item:hover .chevron { color:var(--pnos-icon-strong); transform:translateX(2px); }
 .empty-state { display:flex; flex-direction:column; align-items:center; text-align:center; gap:8px; padding:56px 24px; border-top:1px solid var(--pnos-border); border-bottom:1px solid var(--pnos-border); }
 .empty-icon { width:42px; height:42px; display:grid; place-items:center; margin-bottom:4px; border-radius:50%; background:var(--pnos-surface-soft); color:var(--pnos-muted); font-size:21px; font-weight:300; }
 .empty-state strong { font-size:13px; }
 .empty-state > span { color:var(--pnos-muted); font-size:11px; margin-bottom:7px; }
-.activity-grid { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:56px; margin-bottom:12px; }
-.activity-section, .attention-section { margin-bottom:0; }
-.activity-list { border-top:1px solid var(--pnos-border); }
-.activity-item { display:flex; align-items:center; gap:12px; min-height:58px; border-bottom:1px solid var(--pnos-border); }
-.activity-icon { width:25px; height:25px; display:grid; place-items:center; border-radius:50%; background:var(--pnos-success-soft); color:var(--pnos-success); font-size:12px; font-weight:700; }
-.activity-icon.blue { background:var(--pnos-primary-soft); color:var(--pnos-primary); }
-.activity-icon.muted { background:var(--pnos-surface-soft); color:var(--pnos-subtle); }
-.activity-item > div { display:flex; flex-direction:column; gap:3px; }
-.activity-item strong { font-size:12.5px; font-weight:600; }
-.activity-item span:last-child { color:var(--pnos-muted); font-size:10.5px; }
+.attention-section { margin-bottom:0; }
 .attention-content { min-height:58px; display:flex; align-items:center; gap:11px; padding:0; border-top:1px solid var(--pnos-border); border-bottom:1px solid var(--pnos-border); background:transparent; }
 .attention-mark { width:25px; height:25px; display:grid; place-items:center; border-radius:50%; background:var(--pnos-success-soft); color:var(--pnos-success); font-size:11px; font-weight:700; flex:none; }
 .attention-section.warning .attention-mark { background:var(--pnos-warning-soft); color:var(--pnos-warning); }
@@ -424,13 +404,13 @@ onUnmounted(() => {
   cursor: pointer !important;
   transition: color 0.25s ease, background-color 0.25s ease, transform 0.15s ease;
 }
-.health-action:hover { color: var(--pnos-text); background: rgba(0,0,0,.035); }
+.health-action:hover { color: var(--pnos-text); background: var(--pnos-hover); }
 .health-action:active { transform: scale(0.96); }
 .health-action :deep(.n-button__content) { transition: opacity 0.3s ease; cursor: pointer !important; }
 .health-action :deep(.n-button-loading) { transition: opacity 0.3s ease; cursor: pointer !important; }
 .health-action :deep(.n-base-loading) { transition: opacity 0.3s ease; cursor: pointer !important; }
 .app-item:focus-visible { outline:2px solid rgba(59,114,230,.30); outline-offset:-2px; }
-.app-item:active { background:rgba(0,0,0,.024); }
+.app-item:active { background:var(--pnos-hover-press); }
 @keyframes live-pulse { 0%,65%,100% { box-shadow:0 0 0 3px var(--pnos-success-soft); } 20% { box-shadow:0 0 0 5px var(--pnos-success-soft); } }
 @media (prefers-reduced-motion: reduce) {
   .overview-page *, .overview-page *::before, .overview-page *::after { transition-duration:.01ms !important; animation-duration:.01ms !important; animation-iteration-count:1 !important; scroll-behavior:auto !important; }
@@ -439,7 +419,6 @@ onUnmounted(() => {
   .overview-header { align-items:flex-start; flex-direction:column; }
   .overview-status { align-items:flex-start; }
   .resource-row { grid-template-columns:190px minmax(0,1fr) 54px; gap:14px; }
-  .activity-grid { grid-template-columns:1fr; gap:38px; }
 }
 @media (max-width:700px) {
   .overview-page { padding-top:6px; }

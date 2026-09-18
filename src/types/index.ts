@@ -128,3 +128,14 @@ export interface InstallProgress {
   total: number | null
   message?: string
 }
+
+// ===== 运行时配置（对齐 pnos-runtime GET /api/v1/system/config，只读） =====
+
+export interface RuntimeConfig {
+  /** HTTP 服务监听端口（运行时配置文件 / PNOS_PORT） */
+  port: number
+  /** 应用反向代理前缀（pnos-spec protocol::APP_PROXY_PREFIX） */
+  proxy_prefix: string
+  /** CORS 允许来源，`["*"]` 表示允许任意来源 */
+  cors_origins: string[]
+}

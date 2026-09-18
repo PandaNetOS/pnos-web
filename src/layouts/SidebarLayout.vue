@@ -18,9 +18,9 @@
       />
 
       <div class="sidebar-footer">
-        <div class="health-row">
+        <div class="health-row" :class="`is-${systemStore.systemStatus}`">
           <span class="health-dot" />
-          <span>系统运行正常</span>
+          <span>{{ systemStore.statusText }}</span>
         </div>
         <div class="version">{{ systemStore.version || 'v0.1.0' }}</div>
       </div>
@@ -46,7 +46,9 @@
           </n-input>
 
           <div class="topbar-actions">
-            <div class="top-status"><span class="health-dot" /> 运行正常</div>
+            <div class="top-status" :class="`is-${systemStore.systemStatus}`">
+              <span class="health-dot" /> {{ systemStore.statusText }}
+            </div>
             <n-button quaternary circle aria-label="Account">
               <span class="avatar">P</span>
             </n-button>
@@ -74,7 +76,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, h } from 'vue'
+import { computed, onMounted, onUnmounted, ref, h, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { NIcon } from 'naive-ui'
 import SimpleBar from 'simplebar-vue'
@@ -113,7 +115,7 @@ const menuOptions = computed(() => [
           key: 'app-shortcuts',
           children: appShortcuts.value.map((a) => ({
             label: a.name,
-            key: `/app/${a.id}`,
+            key: `/apps/${a.id}`,
             icon: makeIcon('▣'),
           })),
         },
@@ -123,8 +125,9 @@ const menuOptions = computed(() => [
 
 const activeMenu = computed(() => {
   if (route.path.startsWith('/dashboard')) return '/dashboard'
+  // 应用壳（/apps/<id>）要高亮对应快捷入口，必须先于 /apps 列表判断
+  if (route.path.startsWith('/apps/')) return route.path
   if (route.path.startsWith('/apps') || route.path.startsWith('/store')) return '/apps'
-  if (route.path.startsWith('/app/')) return route.path
   return '/settings'
 })
 
@@ -132,11 +135,31 @@ function handleMenuClick(key: string) { router.push(key) }
 function handleMobileClick(key: string) { mobileDrawer.value = false; router.push(key) }
 function updateViewport() { isMobile.value = window.innerWidth < 900 }
 
+/**
+ * 侧栏是最常驻的组件，系统指标轮询由它统一持有：
+ * 这样任何页面都能看到真实的系统状态，其他视图不要再调用 systemStore 的
+ * startPolling/stopPolling，否则离开该视图会顺带把这里的轮询停掉。
+ */
+function startStatusPolling() {
+  systemStore.startPolling(settingsStore.refreshInterval)
+}
+
 onMounted(() => {
   systemStore.fetchInfo()
+  systemStore.fetchStats()
   componentsStore.fetch()
+  startStatusPolling()
   updateViewport()
   window.addEventListener('resize', updateViewport)
+})
+
+onUnmounted(() => {
+  systemStore.stopPolling()
+  window.removeEventListener('resize', updateViewport)
+})
+
+watch(() => settingsStore.refreshInterval, () => {
+  startStatusPolling()
 })
 </script>
 
@@ -148,27 +171,33 @@ onMounted(() => {
   background: var(--pnos-bg);
 }
 .app-sidebar {
-  width: 228px;
+  width: var(--pnos-sidebar-width);
   flex-shrink: 0;
-  background: rgba(255,255,255,.92);
+  background: var(--pnos-glass);
   backdrop-filter: blur(18px);
-  border-right: 1px solid rgba(0,0,0,0.06);
+  border-right: 1px solid var(--pnos-divider);
   overflow: hidden;
 }
 .sidebar-inner { display:flex; flex-direction:column; height:100%; overflow:hidden; }
 .brand { display:flex; align-items:center; gap:11px; padding:22px 20px 18px; flex-shrink:0; }
 .brand-name { font-size:18px; font-weight:700; letter-spacing:-.025em; }
 .brand-caption { margin-top:2px; color:var(--pnos-subtle); font-size:11px; }
-.brand-mark { width:34px; height:34px; border-radius:11px; background:#16181d; display:grid; place-items:center; position:relative; flex:none; }
-.brand-mark::before, .brand-mark::after, .brand-mark span { content:""; position:absolute; background:white; border-radius:99px; }
+.brand-mark { width:34px; height:34px; border-radius:11px; background:var(--pnos-brandmark-bg); display:grid; place-items:center; position:relative; flex:none; transition:var(--pnos-transition); }
+.brand-mark::before, .brand-mark::after, .brand-mark span { content:""; position:absolute; background:var(--pnos-brandmark-shape); border-radius:99px; }
 .brand-mark::before { width:17px; height:11px; top:9px; left:8px; }
-.brand-mark::after { width:7px; height:7px; top:11px; left:11px; box-shadow:9px 0 0 white; }
+.brand-mark::after { width:7px; height:7px; top:11px; left:11px; box-shadow:9px 0 0 var(--pnos-brandmark-shape); }
 .brand-mark span { width:12px; height:6px; bottom:7px; left:11px; }
 .brand-mark.small { width:29px; height:29px; border-radius:9px; }
 .main-menu { padding:8px 10px; flex:1; overflow-y:auto; min-height:0; }
-.sidebar-footer { padding:14px 18px 20px; flex-shrink:0; margin-top:auto; background:rgba(255,255,255,.95); }
-.health-row { display:flex; align-items:center; gap:7px; font-size:12px; font-weight:600; color:#4d5561; }
+.sidebar-footer { padding:14px 18px 20px; flex-shrink:0; margin-top:auto; background:var(--pnos-glass-strong); transition:var(--pnos-transition); }
+.health-row { display:flex; align-items:center; gap:7px; font-size:12px; font-weight:600; color:var(--pnos-text-soft); }
 .health-dot { width:7px; height:7px; border-radius:50%; background:var(--pnos-success); display:inline-block; box-shadow:0 0 0 3px var(--pnos-success-soft); }
+.health-row.is-warning .health-dot, .top-status.is-warning .health-dot { background:var(--pnos-warning); box-shadow:0 0 0 3px var(--pnos-warning-soft); }
+.health-row.is-danger .health-dot, .top-status.is-danger .health-dot { background:var(--pnos-danger); box-shadow:0 0 0 3px var(--pnos-danger-soft); }
+.health-row.is-offline .health-dot, .top-status.is-offline .health-dot { background:var(--pnos-subtle); box-shadow:0 0 0 3px var(--pnos-surface-soft); }
+.health-row.is-warning { color:var(--pnos-warning); }
+.health-row.is-danger { color:var(--pnos-danger); }
+.health-row.is-offline { color:var(--pnos-muted); }
 .version { color:var(--pnos-subtle); font-size:11px; margin-top:8px; }
 
 .main-area {
@@ -181,16 +210,20 @@ onMounted(() => {
 .topbar {
   height: var(--pnos-header-height);
   flex-shrink: 0;
-  background: rgba(255,255,255,.8);
+  background: var(--pnos-glass-soft);
   backdrop-filter: blur(18px);
-  border-bottom: 1px solid rgba(0,0,0,0.06);
+  border-bottom: 1px solid var(--pnos-divider);
   overflow: hidden;
+  transition: var(--pnos-transition);
 }
 .topbar-inner { height:100%; display:flex; align-items:center; gap:20px; padding:0 26px; }
 .global-search { width:min(460px, 46vw); }
 .search-symbol { color:var(--pnos-subtle); font-size:14px; }
 .topbar-actions { margin-left:auto; display:flex; align-items:center; gap:8px; }
-.top-status { display:flex; align-items:center; gap:8px; font-size:12px; color:#5c6571; font-weight:600; }
+.top-status { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--pnos-text-soft-2); font-weight:600; }
+.top-status.is-warning { color:var(--pnos-warning); }
+.top-status.is-danger { color:var(--pnos-danger); }
+.top-status.is-offline { color:var(--pnos-muted); }
 .avatar { width:28px; height:28px; display:grid; place-items:center; border-radius:50%; background:#3478f6; color:white; font-size:12px; font-weight:700; }
 
 .content-area {
@@ -208,20 +241,20 @@ onMounted(() => {
   height: 80px;
 }
 .content-scrollbar :deep(.simplebar-scrollbar::before) {
-  background: rgba(0, 0, 0, 0.10);
+  background: var(--pnos-scrollbar);
   border-radius: 3px;
   opacity: 1;
   transition: background 0.2s ease;
 }
 .content-scrollbar :deep(.simplebar-hover .simplebar-scrollbar::before),
 .content-scrollbar :deep(.simplebar-scrollbar:hover::before) {
-  background: rgba(0, 0, 0, 0.25);
+  background: var(--pnos-scrollbar-hover);
 }
 
 .mobile-brand { display:none; align-items:center; gap:8px; }
 .mobile-drawer { padding: 8px 12px 20px; }
 .mobile-drawer-brand { padding-left: 8px; }
-.menu-glyph { display:block; width:16px; text-align:center; color:#68707c; font-size:16px; }
+.menu-glyph { display:block; width:16px; text-align:center; color:var(--pnos-glyph); font-size:16px; }
 :deep(.n-menu-item-content) { border-radius:10px; }
 :deep(.n-menu-item-content--selected) { background:var(--pnos-primary-soft); color:var(--pnos-primary); }
 :deep(.n-menu-item-content--selected .menu-glyph) { color:var(--pnos-primary); }

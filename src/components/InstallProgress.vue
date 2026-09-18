@@ -102,7 +102,7 @@ const barWidth = computed(() => {
 /* 配色与首页 Storage 用量条保持一致 */
 .ip-meter {
   height: 5px;
-  background: #eceef1;
+  background: var(--pnos-track);
   border-radius: 999px;
   overflow: hidden;
 }

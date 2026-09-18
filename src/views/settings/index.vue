@@ -11,18 +11,21 @@
             <strong class="setting-row-title">主题模式</strong>
             <span class="setting-row-desc">选择浅色或深色界面</span>
           </div>
-          <n-segmented
+          <n-radio-group
             :value="settingsStore.theme"
-            :options="themeOptions"
+            size="small"
             @update:value="handleThemeChange"
-          />
+          >
+            <n-radio-button value="light">浅色</n-radio-button>
+            <n-radio-button value="dark">深色</n-radio-button>
+          </n-radio-group>
         </div>
       </div>
     </section>
 
     <!-- 监控 -->
     <section class="settings-section">
-      <SectionHeading title="监控" description="数据刷新与告警阈值" />
+      <SectionHeading title="监控" description="刷新频率与告警阈值，直接作用于概览页" />
       <div class="setting-card pnos-surface">
         <div class="setting-row">
           <div class="setting-row-info">
@@ -40,7 +43,10 @@
         <div class="setting-row">
           <div class="setting-row-info">
             <strong class="setting-row-title">CPU 告警阈值</strong>
-            <span class="setting-row-desc">使用率超过此值时触发告警</span>
+            <span class="setting-row-desc">
+              当前 {{ systemStore.cpuUsage }}%。达到阈值概览页开始告警，超过
+              {{ dangerLine(settingsStore.cpuAlertThreshold) }}% 升级为严重
+            </span>
           </div>
           <div class="setting-control">
             <n-slider
@@ -48,19 +54,23 @@
               :min="50"
               :max="100"
               :step="5"
-              :disabled="!backendSupported"
               style="width: 160px"
               @update:value="(v: number) => settingsStore.cpuAlertThreshold = v"
             />
             <span class="threshold-value">{{ settingsStore.cpuAlertThreshold }}%</span>
-            <BackendBadge />
+            <n-tag :type="levelTagType(systemStore.cpuLevel)" size="small" round>
+              {{ levelText(systemStore.cpuLevel) }}
+            </n-tag>
           </div>
         </div>
         <n-divider class="setting-divider" />
         <div class="setting-row">
           <div class="setting-row-info">
             <strong class="setting-row-title">内存告警阈值</strong>
-            <span class="setting-row-desc">使用率超过此值时触发告警</span>
+            <span class="setting-row-desc">
+              当前 {{ systemStore.memoryUsage }}%。达到阈值概览页开始告警，超过
+              {{ dangerLine(settingsStore.memoryAlertThreshold) }}% 升级为严重
+            </span>
           </div>
           <div class="setting-control">
             <n-slider
@@ -68,19 +78,23 @@
               :min="50"
               :max="100"
               :step="5"
-              :disabled="!backendSupported"
               style="width: 160px"
               @update:value="(v: number) => settingsStore.memoryAlertThreshold = v"
             />
             <span class="threshold-value">{{ settingsStore.memoryAlertThreshold }}%</span>
-            <BackendBadge />
+            <n-tag :type="levelTagType(systemStore.memoryLevel)" size="small" round>
+              {{ levelText(systemStore.memoryLevel) }}
+            </n-tag>
           </div>
         </div>
         <n-divider class="setting-divider" />
         <div class="setting-row">
           <div class="setting-row-info">
             <strong class="setting-row-title">磁盘告警阈值</strong>
-            <span class="setting-row-desc">使用率超过此值时触发告警</span>
+            <span class="setting-row-desc">
+              当前 {{ systemStore.storageUsage }}%。达到阈值概览页开始告警，超过
+              {{ dangerLine(settingsStore.diskAlertThreshold) }}% 升级为严重
+            </span>
           </div>
           <div class="setting-control">
             <n-slider
@@ -88,12 +102,13 @@
               :min="50"
               :max="100"
               :step="5"
-              :disabled="!backendSupported"
               style="width: 160px"
               @update:value="(v: number) => settingsStore.diskAlertThreshold = v"
             />
             <span class="threshold-value">{{ settingsStore.diskAlertThreshold }}%</span>
-            <BackendBadge />
+            <n-tag :type="levelTagType(systemStore.storageLevel)" size="small" round>
+              {{ levelText(systemStore.storageLevel) }}
+            </n-tag>
           </div>
         </div>
       </div>
@@ -101,89 +116,71 @@
 
     <!-- 应用商店 -->
     <section class="settings-section">
-      <SectionHeading title="应用商店" description="源管理与更新策略">
-        <n-button size="small" @click="showAddSource = true" :disabled="!sourceMutationsSupported">
-          添加源
-        </n-button>
-      </SectionHeading>
+      <SectionHeading title="应用商店" description="当前生效的商店源" />
       <div class="setting-card pnos-surface">
-        <div class="setting-row">
-          <div class="setting-row-info">
-            <strong class="setting-row-title">自动更新应用</strong>
-            <span class="setting-row-desc">发现新版本时自动更新已安装的应用</span>
-          </div>
-          <div class="setting-control">
-            <n-switch
-              :value="settingsStore.autoUpdateApps"
-              :disabled="!backendSupported"
-              @update:value="(v: boolean) => settingsStore.autoUpdateApps = v"
-            />
-            <BackendBadge />
+        <div v-if="storeStore.sources.length">
+          <div v-for="source in storeStore.sources" :key="source.id" class="source-row">
+            <div class="source-info">
+              <strong class="source-name">{{ source.name }}</strong>
+              <span class="source-url mono">{{ source.url }}</span>
+            </div>
+            <div class="source-status">
+              <n-tag :type="source.enabled ? 'success' : 'default'" size="small" round>
+                {{ source.enabled ? '已启用' : '已禁用' }}
+              </n-tag>
+            </div>
+            <div class="source-actions">
+              <n-button
+                size="small"
+                quaternary
+                :loading="refreshingId === source.id"
+                @click="refreshSource(source)"
+              >
+                刷新
+              </n-button>
+            </div>
           </div>
         </div>
-      </div>
-
-      <div v-if="storeStore.sources.length" class="source-list pnos-surface" style="margin-top: 12px">
-        <div v-for="source in storeStore.sources" :key="source.id" class="source-row">
+        <div v-else class="source-row">
           <div class="source-info">
-            <strong class="source-name">{{ source.name }}</strong>
-            <span class="source-url mono">{{ source.url }}</span>
-          </div>
-          <div class="source-status">
-            <n-tag :type="source.enabled ? 'success' : 'default'" size="small" round>
-              {{ source.enabled ? '已启用' : '已禁用' }}
-            </n-tag>
-          </div>
-          <div class="source-actions">
-            <n-button size="small" quaternary :loading="refreshingId === source.id" @click="refreshSource(source)">
-              刷新
-            </n-button>
-            <n-button size="small" quaternary type="error" :disabled="!sourceMutationsSupported" @click="removeSource(source)">
-              删除
-            </n-button>
+            <strong class="source-name">暂无商店源</strong>
+            <span class="source-url">运行时未返回任何商店源，应用商店可能不可用</span>
           </div>
         </div>
       </div>
-
-      <n-alert v-if="!sourceMutationsSupported" type="warning" :show-icon="true" class="source-notice">
-        当前后端仅支持源列表查看与单源刷新，添加 / 删除 / 启用禁用功能待后端 API 支持后开放。
-      </n-alert>
     </section>
 
     <!-- 网络 -->
     <section class="settings-section">
-      <SectionHeading title="网络" description="API 端口与代理配置" />
+      <SectionHeading title="网络" description="运行时实际生效值（只读）" />
       <div class="setting-card pnos-surface">
         <div class="setting-row">
           <div class="setting-row-info">
             <strong class="setting-row-title">API 监听端口</strong>
-            <span class="setting-row-desc">pnos-runtime HTTP 服务监听端口</span>
+            <span class="setting-row-desc">来自 pnos-runtime 运行时配置（配置文件或 PNOS_PORT）</span>
           </div>
           <div class="setting-control">
-            <n-input :value="runtimePort" disabled style="width: 120px" />
-            <BackendBadge />
+            <n-input :value="configPort" disabled style="width: 120px" />
           </div>
         </div>
         <n-divider class="setting-divider" />
         <div class="setting-row">
           <div class="setting-row-info">
             <strong class="setting-row-title">反向代理前缀</strong>
-            <span class="setting-row-desc">应用 Web 界面的反向代理路径前缀</span>
+            <span class="setting-row-desc">应用 Web 界面的反向代理路径前缀（与运行时注册的代理路由同源）</span>
           </div>
           <div class="setting-control">
-            <n-input value="/app" disabled style="width: 120px" />
-            <BackendBadge />
+            <n-input :value="proxyPrefix" disabled style="width: 120px" />
           </div>
         </div>
         <n-divider class="setting-divider" />
         <div class="setting-row">
           <div class="setting-row-info">
             <strong class="setting-row-title">CORS 允许来源</strong>
-            <span class="setting-row-desc">允许跨域访问的来源地址列表</span>
+            <span class="setting-row-desc">运行时当前放行的跨域来源</span>
           </div>
           <div class="setting-control">
-            <n-tag size="small">*</n-tag>
-            <BackendBadge />
+            <n-tag size="small">{{ corsOrigins }}</n-tag>
           </div>
         </div>
       </div>
@@ -227,40 +224,15 @@
         </div>
       </div>
     </section>
-
-    <!-- 添加源弹窗 -->
-    <n-modal v-model:show="showAddSource" :mask-closable="true">
-      <div class="add-source-panel pnos-surface">
-        <div class="detail-header">
-          <h2 class="detail-title">添加应用源</h2>
-          <n-button quaternary circle @click="showAddSource = false">×</n-button>
-        </div>
-        <n-divider />
-        <div class="form-group">
-          <label class="form-label">名称</label>
-          <n-input v-model:value="newSource.name" placeholder="例如：官方源" />
-        </div>
-        <div class="form-group">
-          <label class="form-label">地址</label>
-          <n-input v-model:value="newSource.url" placeholder="https://example.com/index.json" />
-        </div>
-        <div class="form-actions">
-          <n-button @click="showAddSource = false">取消</n-button>
-          <n-button type="primary" @click="confirmAddSource" :disabled="!newSource.name || !newSource.url">
-            添加
-          </n-button>
-        </div>
-      </div>
-    </n-modal>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, h, defineComponent } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useMessage } from 'naive-ui'
 import PageHeader from '@/components/PageHeader.vue'
 import SectionHeading from '@/components/SectionHeading.vue'
-import { useSystemStore } from '@/stores/system'
+import { ALERT_DANGER_MARGIN, useSystemStore } from '@/stores/system'
 import { useStoreStore } from '@/stores/store'
 import { useSettingsStore, type ThemeMode } from '@/stores/settings'
 import type { StoreSource } from '@/types'
@@ -270,17 +242,6 @@ const systemStore = useSystemStore()
 const storeStore = useStoreStore()
 const settingsStore = useSettingsStore()
 
-// 后端暂不支持的功能标记
-const backendSupported = false
-const sourceMutationsSupported = false
-
-const runtimePort = '8080'
-
-const themeOptions = [
-  { label: '浅色', value: 'light' },
-  { label: '深色', value: 'dark' },
-]
-
 const refreshIntervalOptions = [
   { label: '3 秒', value: 3000 },
   { label: '5 秒', value: 5000 },
@@ -288,16 +249,32 @@ const refreshIntervalOptions = [
   { label: '30 秒', value: 30000 },
 ]
 
-const showAddSource = ref(false)
 const refreshingId = ref<string | null>(null)
-const newSource = reactive({ name: '', url: '' })
 
-// 待后端支持标签组件
-const BackendBadge = defineComponent({
-  setup() {
-    return () => h('span', { class: 'backend-badge' }, '待后端')
-  },
+/** 网络区展示运行时返回的真实生效值，取不到时用占位符而不是写死默认值 */
+const configPort = computed(() => (systemStore.config ? String(systemStore.config.port) : '—'))
+const proxyPrefix = computed(() => systemStore.config?.proxy_prefix || '—')
+const corsOrigins = computed(() => {
+  const origins = systemStore.config?.cors_origins
+  return origins && origins.length ? origins.join(', ') : '—'
 })
+
+/** 阈值 + 固定余量 = 严重线（与 stores/system.ts 的判定规则保持一致） */
+function dangerLine(threshold: number): number {
+  return Math.min(100, threshold + ALERT_DANGER_MARGIN)
+}
+
+function levelTagType(level: 'healthy' | 'warning' | 'danger'): 'success' | 'warning' | 'error' {
+  if (level === 'danger') return 'error'
+  if (level === 'warning') return 'warning'
+  return 'success'
+}
+
+function levelText(level: 'healthy' | 'warning' | 'danger'): string {
+  if (level === 'danger') return '严重'
+  if (level === 'warning') return '告警'
+  return '正常'
+}
 
 function handleThemeChange(value: string | number) {
   settingsStore.applyTheme(value as ThemeMode)
@@ -330,19 +307,15 @@ async function refreshSource(source: StoreSource) {
   }
 }
 
-function removeSource(source: StoreSource) {
-  message.info(`删除源「${source.name}」功能待后端支持`)
-}
-
-function confirmAddSource() {
-  message.info('添加源功能待后端支持')
-  showAddSource.value = false
-  newSource.name = ''
-  newSource.url = ''
-}
-
+/**
+ * 阈值行要显示"当前值"，因此本页需要拉一次指标；
+ * 持续刷新由侧栏统一持有的 systemStore 轮询负责（本页不要再 start/stopPolling，
+ * 否则离开本页会把侧栏的状态轮询一起停掉）。
+ */
 onMounted(() => {
   systemStore.fetchInfo()
+  systemStore.fetchStats()
+  systemStore.fetchConfig()
   storeStore.fetchSources()
 })
 </script>
@@ -394,18 +367,6 @@ onMounted(() => {
   text-align: right;
 }
 
-.backend-badge {
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--pnos-warning);
-  background: var(--pnos-warning-soft);
-  padding: 2px 7px;
-  border-radius: 6px;
-  white-space: nowrap;
-}
-
-.source-list { overflow: hidden; margin-top: 12px; }
-
 .source-row {
   display: flex;
   align-items: center;
@@ -442,8 +403,6 @@ onMounted(() => {
   flex-shrink: 0;
 }
 
-.source-notice { margin-top: 12px; }
-
 .info-card { overflow: hidden; }
 
 .info-row {
@@ -466,40 +425,6 @@ onMounted(() => {
   font-size: 13px;
   font-weight: 500;
   text-align: right;
-}
-
-.add-source-panel {
-  width: min(480px, calc(100vw - 32px));
-  padding: 24px;
-}
-
-.detail-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.detail-title {
-  margin: 0;
-  font-size: 18px;
-  letter-spacing: -0.02em;
-}
-
-.form-group { margin-bottom: 18px; }
-
-.form-label {
-  display: block;
-  font-size: 12.5px;
-  font-weight: 600;
-  color: var(--pnos-muted);
-  margin-bottom: 8px;
-}
-
-.form-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-top: 8px;
 }
 
 .mono {

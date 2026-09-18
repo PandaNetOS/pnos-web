@@ -18,7 +18,9 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/apps/index.vue'),
       },
       {
-        path: 'app/:id',
+        // 注意：不能用 /app/:id —— 该前缀是 pnos-runtime 的应用反代入口
+        // （pnos-spec protocol::APP_PROXY_PREFIX），硬刷新会被反代吃掉而不是加载本 SPA
+        path: 'apps/:id',
         name: 'AppShell',
         component: () => import('@/views/app-shell/index.vue'),
       },

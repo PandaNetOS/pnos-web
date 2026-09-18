@@ -181,7 +181,7 @@ watch(
   height: 100%;
   border: 0;
   display: block;
-  background: #fff;
+  background: var(--pnos-frame-bg);
 }
 
 @media (max-width: 640px) {

@@ -18,10 +18,33 @@
   --pnos-radius-md: 12px;
   --pnos-radius-lg: 16px;
   --pnos-shadow: 0 1px 2px rgba(0,0,0,.03);
+  --pnos-shadow-hover: 0 12px 32px rgba(17, 24, 39, 0.08);
   --pnos-transition: 180ms cubic-bezier(.2,.8,.2,1);
   --pnos-space-unit: 8px;
   --pnos-header-height: 58px;
-  --pnos-sidebar-width: 220px;
+  --pnos-sidebar-width: 228px;
+
+  /* ---- 语义层：所有"非跟随 primary/success 等状态色"的界面色都走这里，
+         组件内禁止再写死 rgba(255,255,255)/#eceef1 之类的浅色，否则深色主题会露白 ---- */
+  --pnos-glass: rgba(255, 255, 255, .92);        /* 侧栏毛玻璃 */
+  --pnos-glass-strong: rgba(255, 255, 255, .95); /* 侧栏页脚 */
+  --pnos-glass-soft: rgba(255, 255, 255, .8);    /* 顶栏毛玻璃 */
+  --pnos-divider: rgba(0, 0, 0, .06);            /* 侧栏/顶栏分隔线 */
+  --pnos-track: #eceef1;                         /* 进度条/用量条槽 */
+  --pnos-track-muted: #f2f4f7;                   /* 中性标签底色 */
+  --pnos-hover: rgba(0, 0, 0, .035);             /* 行悬停 */
+  --pnos-hover-soft: rgba(0, 0, 0, .014);        /* 列表项悬停 */
+  --pnos-hover-press: rgba(0, 0, 0, .024);       /* 列表项按下 */
+  --pnos-icon: #b8bcc4;                          /* 弱化图标/箭头 */
+  --pnos-icon-strong: #9096a0;                   /* 图标悬停 */
+  --pnos-glyph: #68707c;                          /* 菜单字符图标 */
+  --pnos-text-soft: #4d5561;                      /* 侧栏状态文字 */
+  --pnos-text-soft-2: #5c6571;                    /* 顶栏状态文字 */
+  --pnos-scrollbar: rgba(0, 0, 0, .10);
+  --pnos-scrollbar-hover: rgba(0, 0, 0, .25);
+  --pnos-frame-bg: #ffffff;                       /* 内嵌应用 iframe 底色 */
+  --pnos-brandmark-bg: #16181d;                   /* 品牌方块 */
+  --pnos-brandmark-shape: #ffffff;                /* 品牌方块里的图形 */
 }
 
 [data-theme="dark"] {
@@ -41,6 +64,26 @@
   --pnos-danger: #e86565;
   --pnos-danger-soft: #3a1f1f;
   --pnos-shadow: 0 1px 3px rgba(0,0,0,.3);
+  --pnos-shadow-hover: 0 12px 32px rgba(0, 0, 0, .45);
+  --pnos-glass: rgba(30, 32, 38, .92);
+  --pnos-glass-strong: rgba(30, 32, 38, .95);
+  --pnos-glass-soft: rgba(30, 32, 38, .8);
+  --pnos-divider: rgba(255, 255, 255, .08);
+  --pnos-track: #33363f;
+  --pnos-track-muted: #2a2d35;
+  --pnos-hover: rgba(255, 255, 255, .06);
+  --pnos-hover-soft: rgba(255, 255, 255, .035);
+  --pnos-hover-press: rgba(255, 255, 255, .05);
+  --pnos-icon: #6b7078;
+  --pnos-icon-strong: #9aa1ac;
+  --pnos-glyph: #9aa1ac;
+  --pnos-text-soft: #b6bac2;
+  --pnos-text-soft-2: #a8adb6;
+  --pnos-scrollbar: rgba(255, 255, 255, .14);
+  --pnos-scrollbar-hover: rgba(255, 255, 255, .28);
+  --pnos-frame-bg: #1e2026;
+  --pnos-brandmark-bg: #e8e9ec;
+  --pnos-brandmark-shape: #16181d;
 }
 
 * { box-sizing: border-box; }

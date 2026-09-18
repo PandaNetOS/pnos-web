@@ -73,7 +73,7 @@ const label = computed(() => {
   color: var(--pnos-primary);
 }
 .status-badge.muted {
-  background: #f2f4f7;
+  background: var(--pnos-track-muted);
   color: var(--pnos-muted);
 }
 </style>

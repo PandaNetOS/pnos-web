@@ -463,9 +463,9 @@ async function toggleApp(app: ComponentInfo) {
   }
 }
 
-/** 应用内打开：进入 App Shell（iframe），侧栏保留 */
+/** 应用内打开：进入 App Shell（iframe），侧栏保留。路由用 /apps/:id，/app/* 留给 runtime 反代 */
 function openAppWeb(app: ComponentInfo) {
-  router.push(`/app/${app.id}`)
+  router.push(`/apps/${app.id}`)
 }
 
 async function uninstallApp(app: ComponentInfo) {
@@ -629,7 +629,7 @@ watch(() => settingsStore.refreshInterval, () => {
 
 .app-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 12px 32px rgba(17, 24, 39, 0.08);
+  box-shadow: var(--pnos-shadow-hover);
 }
 
 .app-card-head {
